@@ -6,8 +6,8 @@ bl_info = {
     "blender": (2, 7, 0),
     "location": "View3D > Panels",
     "warning": '',
-    "wiki_url": "http://www.friedenhq.org",
-    "tracker_url": "http://www.friedenhq.org",
+    "wiki_url": "https://github.com/AlwarrenSidh/ArmAToolbox/wiki",
+    "tracker_url": "https://github.com/AlwarrenSidh/ArmAToolbox/issues",
     "category": "3D View"}
 
 import sys, os
