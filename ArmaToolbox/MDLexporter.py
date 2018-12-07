@@ -105,17 +105,28 @@ def writeVertices(filePtr, mesh):
 
 
 def writeFaces(filePtr, obj, mesh):
-    for face in mesh.tessfaces:
+    for idx,face in enumerate(mesh.polygons):
+        if len(face.vertices) > 4:
+            raise RuntimeError("Model " + obj.name + " contains n-gons and cannot be exported")
         materialName, textureName = getMaterialInfo(face, obj)
         writeULong(filePtr, len(face.vertices))
+
+        # UV'S
+        uvs = []
+        for i1, loopindex in enumerate(face.loop_indices):
+            meshloop = mesh.loops[i1]
+            
+            try:
+                uv = mesh.uv_layers[0].data[loopindex].uv
+            except IndexError:
+                uv = [0,0]
+            uvs.append([uv[0], uv[1]])
+
         for v in range(len(face.vertices)):
             writeULong(filePtr, face.vertices[v]) # vert id
             writeULong(filePtr, face.vertices[v]) # normal id
-            uv = [0.0, 0.0]
-            try:
-                uv = [uv for uv in mesh.tessface_uv_textures.active.data[face.index].uv[v]]
-            except:
-                c = 0
+            uv = uvs[v]
+            #print("u = ", uv[0], "v = ",uv[1])
             uv[1] = 1 - uv[1]
             writeFloat(filePtr, uv[0])
             writeFloat(filePtr, uv[1])
@@ -149,7 +160,7 @@ def writeNamedSelection(filePtr, obj, mesh, idx):
         proxy = obj.armaObjProps.proxyArray[name]
         name = "proxy:" + proxyPathStrip(proxy.path) + "." + proxyIndex(proxy.index) 
     writeString(filePtr, name)
-    writeULong(filePtr, len(mesh.vertices) + len(mesh.tessfaces))
+    writeULong(filePtr, len(mesh.vertices) + len(mesh.polygons))
     for vert in mesh.vertices:
         grps = [grp for grp in vert.groups if grp.group == idx]
         if len(grps) > 0: # Should only ever be 0 or 1
@@ -160,7 +171,7 @@ def writeNamedSelection(filePtr, obj, mesh, idx):
         else:
             writeByte(filePtr, 0)
     
-    for face in mesh.tessfaces:
+    for face in mesh.polygons:
         grps = [grp for vert in face.vertices for grp in mesh.vertices[vert].groups if grp.group == idx]
         if len(grps) == len(face.vertices):
             weight = 0
@@ -177,7 +188,7 @@ def writeNamedSelections(filePtr, obj, mesh):
 
 def writeSharpEdges(filePtr, mesh):
     # First, gather the edges of the flat shaded faces.
-    edges = [edge for face in mesh.tessfaces if not face.use_smooth for edge in face.edge_keys]
+    edges = [edge for face in mesh.polygons if not face.use_smooth for edge in face.edge_keys]
     edges = sorted(set(edges))
     # Gather the edges with the "sharp" flag set
     edges2 = [edge for edge in mesh.edges if edge.use_edge_sharp]
@@ -222,28 +233,43 @@ def writeNamedProperty(filePtr, name, value):
     filePtr.write(struct.pack("<64s", name.encode("ASCII")))
     filePtr.write(struct.pack("<64s", value.encode("ASCII")))
 
+""" def writeUVSet(filePtr, layer, mesh, obj, totalUVs, idx):
+    writeByte(filePtr, 1)
+    writeString(filePtr, "#UVSet#")
+    writeULong(filePtr, 4+totalUVs * 8)
+    writeULong(filePtr, idx)
+    # Write UV Pairs
+    for i, face in enumerate(mesh.polygons):
+        for vertIdx in range(0, len(face.vertices)):
+            uvPair = [0,0]
+            try:
+                uvPair = [uvPair for 
+                    uvPair in 
+                    mesh.uv_layers[idx].data[face.index].uv[vertIdx]]
+            except Exception as e:
+                #print(e)
+                pass
+            writeFloat(filePtr, uvPair[0])
+            writeFloat(filePtr, 1-uvPair[1]) """
+
 def writeUVSet(filePtr, layer, mesh, obj, totalUVs, idx):
     writeByte(filePtr, 1)
     writeString(filePtr, "#UVSet#")
     writeULong(filePtr, 4+totalUVs * 8)
     writeULong(filePtr, idx)
     # Write UV Pairs
-    for i, face in enumerate(mesh.tessfaces):
-        for vertIdx in range(0, len(face.vertices)):
-            upPair = [0,0]
-            try:
-                uvPair = [uvPair for 
-                    uvPair in 
-                    mesh.tessface_uv_textures[idx].data[face.index].uv[vertIdx]]
-            except:
-                pass
+    for i, polygon in enumerate(mesh.polygons):
+        for vertIdx, loopindex in enumerate(polygon.loop_indices):
+            meshloop = mesh.loops[vertIdx]
+            uv = mesh.uv_layers[idx].data[loopindex].uv
+            uvPair = [uv[0],uv[1]]
             writeFloat(filePtr, uvPair[0])
             writeFloat(filePtr, 1-uvPair[1])
 
 def checkMass(obj, lod, mesh):
     # Check if the LOD is a geometry or physx, and add a dummy selection
     # if it doesn't exist.
-    dummyName = "__BLENDER__Dummy";
+    dummyName = "__BLENDER__Dummy"
     for idx in range(len(obj.vertex_groups)):
         name = obj.vertex_groups[idx].name
         if name == dummyName:
@@ -262,7 +288,7 @@ def export_lod(filePtr, obj, wm, idx):
     wm.progress_update(idx*5)
     
     mesh = obj.data
-    mesh.calc_tessface()
+    #mesh.calc_loop_triangles()
     
     lod = lodKey(obj)
     if lod < 0:
@@ -272,15 +298,15 @@ def export_lod(filePtr, obj, wm, idx):
     #    checkMass(obj, lod, mesh)
 
     numberOfNormals = 0
-    for f in mesh.tessfaces:
+    for f in mesh.polygons:
         numberOfNormals = numberOfNormals + len(f.vertices)    
     
     print("Writing Vertices")    
     # Write number of vertices, normals, and faces
-    writeULong(filePtr, len(mesh.vertices))     # Number of Vertices
-    writeULong(filePtr, numberOfNormals)        # Number of Normals
-    writeULong(filePtr, len(mesh.tessfaces))    # Number of Faces
-    writeULong(filePtr, 0)                      # Unused Flags
+    writeULong(filePtr, len(mesh.vertices))         # Number of Vertices
+    writeULong(filePtr, numberOfNormals)            # Number of Normals
+    writeULong(filePtr, len(mesh.polygons))   # Number of Faces
+    writeULong(filePtr, 0)                          # Unused Flags
     
     # Write vertices/Points
     writeVertices(filePtr, mesh)
@@ -326,7 +352,7 @@ def export_lod(filePtr, obj, wm, idx):
     # Write UVSets
     # First, count the number of polygon vertices
     totalUVs = 0
-    for face in mesh.tessfaces:
+    for face in mesh.polygons:
         totalUVs = totalUVs + len(face.vertices)
     
     uvt = mesh.uv_layers

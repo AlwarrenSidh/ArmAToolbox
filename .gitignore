@@ -1,1 +1,6 @@
 .vscode/settings.json
+ATbx.code-workspace
+.vscode/tasks.json
+copy.bat
+.vscode
+__pycache__

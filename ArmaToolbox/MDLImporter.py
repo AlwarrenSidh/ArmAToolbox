@@ -11,7 +11,7 @@ import bpy
 import bmesh
 import os.path as path
 import ArmaToolbox
-
+import ArmaTools
 
 def getLayerMask(layer):
     res = [False, False, False, False, False,
@@ -56,16 +56,19 @@ def makeLodName(fileName, lodLevel):
     return lodName
 
 def maybeAddEdgeSplit(obj):
-    modifier = obj.modifiers.get("FHQ_ARMA_Toolbox_EdgeSplit")
-    if modifier is None:
-        modifier = obj.modifiers.new("FHQ_ARMA_Toolbox_EdgeSplit",
-                 type='EDGE_SPLIT')
-        
-        modifier.show_expanded = False
-        modifier.use_edge_angle = False # Want only sharp edges
-        modifier.use_edge_sharp = True
+    obj.data.use_auto_smooth = True
+    obj.data.auto_smooth_angle = 3.1415927
 
-    obj.data.show_edge_sharp = True
+    #modifier = obj.modifiers.get("FHQ_ARMA_Toolbox_EdgeSplit")
+    #if modifier is None:
+    #    modifier = obj.modifiers.new("FHQ_ARMA_Toolbox_EdgeSplit",
+    #             type='EDGE_SPLIT')
+    #    
+    #    modifier.show_expanded = False
+    #    modifier.use_edge_angle = False # Want only sharp edges
+    #    modifier.use_edge_sharp = True
+
+    #obj.data.show_edge_sharp = True
 
 def correctedResolution(r):
     res = int(r)
@@ -275,13 +278,22 @@ def loadLOD(context, filePtr, objectName, materialData, layerFlag, lodnr):
     mymesh = bpy.data.meshes.new(name=meshName)
     mymesh.from_pydata(verts, [], faces) 
 
-    mymesh.update(True)
+    mymesh.update(calc_edges = True)
 
     obj = bpy.data.objects.new(meshName, mymesh)
     
+    # TODO: Maybe add a "logical Collection" option that
+    # Collects all geometries, shadows, custom etc in a collection.
+
     scn = bpy.context.scene
-    scn.objects.link(obj)
-    scn.objects.active = obj   
+
+    coll = bpy.data.collections.new(meshName)
+    context.scene.collection.children.link(coll)
+    coll.objects.link(obj)
+    
+    #NEIN! coll.hide_viewport = True
+    #scn.objects.link(obj)
+    #scn.objects.active = obj   
     
     print("taggs")    
     loop = True
@@ -320,7 +332,7 @@ def loadLOD(context, filePtr, objectName, materialData, layerFlag, lodnr):
                 id = readULong(filePtr)
                 layerName = "UVSet " + str(id)
                 #print("adding UV set " + layerName)
-                mymesh.uv_textures.new(name=layerName)
+                mymesh.uv_layers.new(name=layerName)
                 layer = mymesh.uv_layers[-1]
                 index = 0
                 for faceIdx in range(0,numFaces):
@@ -348,7 +360,7 @@ def loadLOD(context, filePtr, objectName, materialData, layerFlag, lodnr):
                 if len(tagName) > 5:
                     if tagName[:6] == "proxy:":
                         newVGrp = False
-                        vgrp = obj.vertex_groups.new("@@armaproxy")
+                        vgrp = obj.vertex_groups.new(name = "@@armaproxy")
                         prp = obj.armaObjProps.proxyArray
                         prx = tagName.split(":")[1]
                         if prx.find(".") != -1:
@@ -366,7 +378,7 @@ def loadLOD(context, filePtr, objectName, materialData, layerFlag, lodnr):
                         tagName = "@@armyproxy"
                 
                 if newVGrp == True:    
-                    vgrp = obj.vertex_groups.new(tagName)
+                    vgrp = obj.vertex_groups.new(name = tagName)
                 for i in range(0, numPoints):
                     b = readByte(filePtr)
                     w = decodeWeight(b)
@@ -389,6 +401,7 @@ def loadLOD(context, filePtr, objectName, materialData, layerFlag, lodnr):
     meshName = resolutionName(resolution)
     mymesh.name = meshName
     obj.name = meshName
+    coll.name = meshName
 
     print("materials...")
     indexData = {}
@@ -437,19 +450,20 @@ def loadLOD(context, filePtr, objectName, materialData, layerFlag, lodnr):
     # TODO: This causes faces with the same vertices but different normals to
     # be discarded. Don't want that
     #mymesh.validate()
-
+    print("Normal calculation")
     mymesh.calc_normals()
     for poly in mymesh.polygons:
         poly.use_smooth = True
 
+    print("Add edge split")
     maybeAddEdgeSplit(obj)
     scn.update()
-    obj.select = True  
+    obj.select_set(True)
     
-    if layerFlag == True:
-        # Move to layer
-        objectLayers = getLayerMask(lodnr)
-        bpy.ops.object.move_to_layer(layers=objectLayers)
+    #if layerFlag == True:
+    #    # Move to layer
+    #    objectLayers = getLayerMask(lodnr)
+    #    bpy.ops.object.move_to_layer(layers=objectLayers)
 
     hasSet = False
     oldres = resolution
@@ -461,7 +475,8 @@ def loadLOD(context, filePtr, objectName, materialData, layerFlag, lodnr):
         hasSet = True
     else:
         obj.armaObjProps.lodDistance = offset #0.0
-        
+
+    print("set LOD type")    
     # Set the right LOD type
     lodPresets = ArmaToolbox.lodPresets
     
@@ -491,7 +506,11 @@ def loadLOD(context, filePtr, objectName, materialData, layerFlag, lodnr):
         
         bm.to_mesh(obj.data)
     
-    obj.select = False
+    obj.select_set(False)
+    
+    if obj.armaObjProps.lod == '1.000e+13' or obj.armaObjProps.lod == '4.000e+13':
+        ArmaTools.attemptFixMassLod (obj)
+
     print("done reading lod")
     return 0
 
@@ -528,4 +547,5 @@ def importMDL(context, fileName, layerFlag):
             return -2
 
     filePtr.close()
+
     return 0

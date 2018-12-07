@@ -30,7 +30,7 @@ def CreateProxy(obj, v1,v2,v3, path, index, enclose=None):
         bm.to_mesh(mesh)
         bm.free()
 
-        vgrp = obj.vertex_groups.new("@@armaproxy")
+        vgrp = obj.vertex_groups.new(name = "@@armaproxy")
         vgrp.add([i+0],1,'ADD')
         vgrp.add([i+1],1,'ADD')
         vgrp.add([i+2],1,'ADD')

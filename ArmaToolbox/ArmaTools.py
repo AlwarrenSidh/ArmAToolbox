@@ -576,3 +576,27 @@ def hitpointCreator(context, selection, radius):
     bpy.context.active_object.vertex_groups.new(selection)
     bpy.ops.object.vertex_group_assign()
     return
+
+
+def tessNonQuads(context):
+    selectedOnly = False
+    objects = [obj
+            for obj in bpy.data.objects
+
+                if (selectedOnly == False or obj.selected == True)
+                    and obj.type == 'MESH'
+                    and obj.armaObjProps.isArmaObject
+            ]
+
+    if len(objects) == 0:
+        return False
+
+    for obj in objects:
+        obj.select_set(True)
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.reveal()
+        bpy.ops.mesh.select_all(action='DESELECT')
+        bpy.ops.mesh.select_face_by_sides(number=4, type='GREATER')
+        bpy.ops.mesh.quads_convert_to_tris(quad_method='BEAUTY', ngon_method='BEAUTY')
+        bpy.ops.object.mode_set(mode='OBJECT')
+        obj.select_set(False)
