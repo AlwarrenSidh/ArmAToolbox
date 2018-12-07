@@ -2,7 +2,7 @@ bl_info = {
     "name": "Arma: Toolbox",
     "description": "Collection of tools for editing Arma 2/3 content",
     "author": "Hans-Joerg \"Alwarren\" Frieden.",
-    "version": (2, 0, 0),
+    "version": (3, 0, 0),
     "blender": (2, 80, 0),
     "location": "View3D > Panels",
     "warning": '',
