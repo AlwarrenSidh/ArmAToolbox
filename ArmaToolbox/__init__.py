@@ -346,7 +346,7 @@ def ArmaToolboxExportMenuFunc(self, context):
     self.layout.operator(ATBX_OT_p3d_export.bl_idname, text="Arma 3 P3D (.p3d)")
 
 def ArmaToolboxImportMenuFunc(self, context):
-    self.layout.operator(ATBX_OT_import_p3d.bl_idname, text="Arma 3 P3D (.p3d)")
+    self.layout.operator(ATBX_OT_p3d_import.bl_idname, text="Arma 3 P3D (.p3d)")
 
 def ArmaToolboxImportASCMenuFunc(self, context):
     self.layout.operator(ATBX_OT_asc_import.bl_idname, text="Arma 3 ASC DEM File (.asc)")
