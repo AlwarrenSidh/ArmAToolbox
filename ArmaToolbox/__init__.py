@@ -234,7 +234,7 @@ class ATBX_OT_p3d_export(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
         
         # Run O2Script to output the P3D
         #command = os.path.join(context.window_manager.armatoolbox.o2path, "O2Script.exe")
-        user_preferences = context.user_preferences
+        user_preferences = context.preferences
         addon_prefs = user_preferences.addons[__name__].preferences
         command = addon_prefs.o2ScriptProp
         command = '"' + command +'" "' + tmpName + '"'

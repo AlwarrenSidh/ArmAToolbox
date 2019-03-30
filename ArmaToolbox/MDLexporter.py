@@ -171,13 +171,16 @@ def writeNamedSelection(filePtr, obj, mesh, idx):
         else:
             writeByte(filePtr, 0)
     
-    for face in mesh.polygons:
+    for face in mesh.tessfaces:
         grps = [grp for vert in face.vertices for grp in mesh.vertices[vert].groups if grp.group == idx]
         if len(grps) == len(face.vertices):
             weight = 0
             for grpF in grps:
                 weight += grpF.weight
-            writeByte(filePtr, convertWeight(weight / len(grps)))
+            if (weight > 0):
+                writeByte(filePtr, convertWeight(1) #weight / len(grps)))
+            else:
+                writeByte(filePtr, 0)
         else:
             writeByte(filePtr, 0)
 

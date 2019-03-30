@@ -496,7 +496,8 @@ def createComponents(context):
             selected_verts = list(filter(lambda v: v.select, mesh.vertices))
             bpy.ops.object.mode_set(mode="EDIT")
             if (len(selected_verts) > 3):
-                vgrp = bpy.context.active_object.vertex_groups.new("Component%02d" % componentNr)
+                cmp = ("Component%02d" % componentNr)
+                vgrp = bpy.context.active_object.vertex_groups.new(name=cmp)
                 componentNr = componentNr + 1
                 bpy.ops.object.vertex_group_assign()
             

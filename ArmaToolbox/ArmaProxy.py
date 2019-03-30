@@ -38,7 +38,7 @@ def CreateProxy(obj, v1,v2,v3, path, index, enclose=None):
         if enclose != None:
             fnd = obj.vertex_groups.find(enclose)
             if (fnd == -1):
-                vgrp2 = obj.vertex_groups.new(enclose)
+                vgrp2 = obj.vertex_groups.new(name = enclose)
             else:
                 vgrp2 = obj.vertex_groups[fnd]
                 
