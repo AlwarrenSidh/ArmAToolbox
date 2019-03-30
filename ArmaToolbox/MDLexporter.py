@@ -166,7 +166,10 @@ def writeNamedSelection(filePtr, obj, mesh, idx):
             weight = 0
             for grpF in grps:
                 weight += grpF.weight
-            writeByte(filePtr, convertWeight(weight / len(grps)))
+            if (weight > 0):
+                writeByte(filePtr, convertWeight(1))
+            else:
+                writeByte(filePtr, 0)
         else:
             writeByte(filePtr, 0)
 

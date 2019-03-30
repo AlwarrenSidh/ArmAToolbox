@@ -376,11 +376,11 @@ def loadLOD(context, filePtr, objectName, materialData, layerFlag, lodnr):
                 for i in range(0, numFaces):
                     b = readByte(filePtr)
                     w = decodeWeight(b)
-                    if w>0:
-                        pPoly = obj.data.polygons[i]
-                        for n in range(0,len(pPoly.vertices)):
-                            idx = pPoly.vertices[n]
-                            vgrp.add([idx], w, 'REPLACE')
+                    #if w>0:
+                    #    pPoly = obj.data.polygons[i]
+                    #    for n in range(0,len(pPoly.vertices)):
+                    #        idx = pPoly.vertices[n]
+                    #        vgrp.add([idx], w, 'REPLACE')
                 #filePtr.seek(numFaces, 1)
     
     # Done with the taggs, only the resolution is left to read
