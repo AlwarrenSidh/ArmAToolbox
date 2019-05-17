@@ -152,7 +152,7 @@ class ATBX_OT_add_new_proxy(bpy.types.Operator):
         obj = context.active_object
         mesh = obj.data
         
-        cursor_location = bpy.context.scene.cursor_location
+        cursor_location = bpy.context.scene.cursor.location
         cursor_location = cursor_location - obj.location
 
         bm = bmesh.from_edit_mesh(mesh)

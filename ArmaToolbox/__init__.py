@@ -143,9 +143,9 @@ def getLodPresets():
 ##   Export RTM Operator
 #
 
-class ArmaToolboxExportRTM(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
+class ATBX_OT_rtm_export(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
     """Export RTM Animation file"""
-    bl_idname = "armatoolbox.exportrtm"
+    bl_idname = "armatoolbox.export_rtm"
     bl_label = "Export as RTM"
     bl_description = "Export an Arma 2/3 RTM Animation file"
     
@@ -429,7 +429,7 @@ def ArmaToolboxAddProxyMenuFunc(self, context):
 '''
 
 def ArmaToolboxExportRTMMenuFunc(self, context):
-    self.layout.operator(ArmaToolboxExportRTM.bl_idname, text="Arma 2/3 .RTM Animation")
+    self.layout.operator(ATBX_OT_rtm_export.bl_idname, text="Arma 3 .RTM Animation")
         
 
 ###################################
@@ -537,7 +537,8 @@ classes = (
     ATBX_OT_p3d_import,
     ATBX_OT_p3d_export,
     ATBX_OT_asc_import,
-    ATBX_OT_asc_export
+    ATBX_OT_asc_export,
+    ATBX_OT_rtm_export
 )
 
 def register():

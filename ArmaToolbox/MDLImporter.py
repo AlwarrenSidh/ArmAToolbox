@@ -458,7 +458,7 @@ def loadLOD(context, filePtr, objectName, materialData, layerFlag, lodnr):
 
     print("Add edge split")
     maybeAddEdgeSplit(obj)
-    scn.update()
+    #scn.update()
     obj.select_set(True)
     
     #if layerFlag == True:
