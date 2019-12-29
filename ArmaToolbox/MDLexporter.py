@@ -9,6 +9,7 @@ import os
 import math
 import struct
 import bmesh
+from ArmaTools import messageReport
 
 def stripAddonPath(path):
     if path == "" or path == None: 
@@ -81,7 +82,8 @@ def writeString(filePtr, value):
     packFormat = '<%ds' % (len(data) + 1)
     filePtr.write(struct.pack(packFormat, data))
 
-
+def writeBytes(filePtr, value):
+    filePtr.write(value)
 
 ###
 ## Export a single object as a LOD into the P3D file        
@@ -152,6 +154,14 @@ def proxyPathStrip(pathName):
 def proxyIndex(index):
     return "%03d" % (index)
 
+#
+# This function is one of the reasons that export is slow (that and sharp edges).
+#
+# Possible idea to optimize: Instead of writing named selections one by one, go through the
+# vertices one by one, enter each named selection into a dictionary and append the vertex index
+# to the list of vertices. Then, cycle over the list and dump them.
+#
+# Potential issue: Memory consumption might be too high.
 def writeNamedSelection(filePtr, obj, mesh, idx):
     name = obj.vertex_groups[idx].name
     writeByte(filePtr, 1) # Always active
@@ -184,24 +194,111 @@ def writeNamedSelection(filePtr, obj, mesh, idx):
         else:
             writeByte(filePtr, 0)
 
-def writeNamedSelections(filePtr, obj, mesh):
+def OLDwriteNamedSelections(filePtr, obj, mesh):
     for idx in range(len(obj.vertex_groups)):
         writeNamedSelection(filePtr, obj, mesh, idx)
 
+def fullNameIfProxy(obj,name):
+    if name in obj.armaObjProps.proxyArray:
+        proxy = obj.armaObjProps.proxyArray[name]
+        name = "proxy:" + proxyPathStrip(proxy.path) + "." + proxyIndex(proxy.index) 
+    return name
+
+
+def writeNamedSelections(filePtr, obj, mesh):
+    # Build the array
+    print("named selections: Building list of selections")
+    selections = dict()
+    selectionsFace = dict()
+    for idx in range(len(obj.vertex_groups)):
+        name = obj.vertex_groups[idx].name
+        selections[name] = set()
+        selectionsFace[name] = set()
+
+    # We now go through all vertices and add their index to the appropriate groups
+    print("named selections: Going through vertices")
+    for vertex in mesh.vertices:
+        groups = vertex.groups
+        for group in groups:
+            name = obj.vertex_groups[group.group].name
+            weight = group.weight
+            selections[name].add((vertex.index, weight))
+
+    # Now, collect face related weights. This can be either of two conditions:
+    # 1) The face is part of a Face Map
+    # 2) The vertices of this face have a weight greater than zero.
+    for face in mesh.polygons:
+        # This will get all the group indices in the current face
+        # Using a set will make sure they are unique
+        groups = set([grp.group for vert in face.vertices for grp in mesh.vertices[vert].groups])
+        for grpIdx in groups:
+            weight = sum([grp.weight for vert in face.vertices for grp in mesh.vertices[vert].groups if grp.group == grpIdx])
+            if weight > 0:
+                name = obj.vertex_groups[grpIdx].name
+                selectionsFace[name].add(face.index)
+
+    # At this point we can dump the array of groups into a file
+    print("named selections: writing to disk")
+    for name in selections:
+        selName = fullNameIfProxy(obj, name)
+        print(name, "->", selName)
+        writeByte(filePtr, 1)
+        writeString(filePtr, selName)
+        writeULong(filePtr, len(mesh.vertices) + len(mesh.polygons))
+        # Create a blob for the vertices and polygons
+        vertBlob = bytearray(len(mesh.vertices))
+        verts = selections[name]
+        for v in verts:
+            idx = v[0]
+            weight = convertWeight(v[1])
+            vertBlob[idx] = weight
+        writeBytes(filePtr, vertBlob)
+        # Polygons. TODO: use Face Map
+        polyBlob = bytearray(len(mesh.polygons))
+        faces = selectionsFace[name]
+        for f in faces:
+            polyBlob[f] = 1
+        writeBytes(filePtr, polyBlob)
+    print("named selections: done")
 
 def writeSharpEdges(filePtr, mesh):
     # First, gather the edges of the flat shaded faces.
     edges = [edge for face in mesh.polygons if not face.use_smooth for edge in face.edge_keys]
     edges = sorted(set(edges))
+    print("taggs: sharp edges - gather sharp edges")
+    ###
+    # OLD CODE - new code below
+    ###
     # Gather the edges with the "sharp" flag set
-    edges2 = [edge for edge in mesh.edges if edge.use_edge_sharp]
+    #edges2 = [edge for edge in mesh.edges if edge.use_edge_sharp]
+    #print("taggs: sharp edges - find doubles")
     # We need to go through the edges to find the doubles.
-    for edge in edges2:
-        v1 = edge.vertices[0]
-        v2 = edge.vertices[1]
-        if not (v1, v2) in edges and not (v2, v1) in edges:
-            edges = edges + [(v1, v2)]
+    #for edge in edges2:
+    #    v1 = edge.vertices[0]
+    #    v2 = edge.vertices[1]
+    #    if not (v1, v2) in edges and not (v2, v1) in edges:
+    #        edges = edges + [(v1, v2)]
     
+    ###
+    # NEW CODE
+    ###
+    # ALternative approach: Insert the pairs of vertices into the edge list sorted, smallest index first
+    # Turn the list into a set to eliminate doubles
+    # turn it back into a list
+    for edge in mesh.edges:
+        if edge.use_edge_sharp:
+            v1 = edge.vertices[0]
+            v2 = edge.vertices[1]
+            if v1 < v2:
+                edges = edges + [(v1,v2)]
+            else:
+                edges = edges + [(v2,v1)]
+    
+    edge_set = set(edges)
+    edges = list(edge_set)
+
+
+    print("taggs: sharp edges - write them")
     if (len(edges) > 0): # Only write this if we have sharp edges
         writeByte(filePtr, 1)
         writeString(filePtr, '#SharpEdges#')
@@ -374,7 +471,7 @@ def export_lod(filePtr, obj, wm, idx):
     
     
 # Export a couple of meshes to a P3D MLOD files    
-def exportMDL(filePtr, selectedOnly):    
+def exportMDL(myself, filePtr, selectedOnly):    
     if selectedOnly:
         objects = [obj
                     for obj in bpy.context.selected_objects
@@ -406,8 +503,15 @@ def exportMDL(filePtr, selectedOnly):
     total = len(objects) * 5
     wm.progress_begin(0, total)
     
+    print("self = ", myself)
+
+    messageReport(myself, "Starting Export")
+
+    numLods = objects.__len__()
+
     # For each object, export a LOD
     for idx, obj in enumerate(objects):
+        messageReport(myself, "Exporting {0}/{1}".format(idx+1, numLods))
         export_lod(filePtr, obj, wm, idx)
         
     wm.progress_end()
