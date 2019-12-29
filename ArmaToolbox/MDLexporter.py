@@ -9,7 +9,6 @@ import os
 import math
 import struct
 import bmesh
-from ArmaTools import messageReport
 
 def stripAddonPath(path):
     if path == "" or path == None: 
@@ -505,13 +504,10 @@ def exportMDL(myself, filePtr, selectedOnly):
     
     print("self = ", myself)
 
-    messageReport(myself, "Starting Export")
-
     numLods = objects.__len__()
 
     # For each object, export a LOD
     for idx, obj in enumerate(objects):
-        messageReport(myself, "Exporting {0}/{1}".format(idx+1, numLods))
         export_lod(filePtr, obj, wm, idx)
         
     wm.progress_end()
