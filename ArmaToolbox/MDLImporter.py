@@ -295,6 +295,18 @@ def loadLOD(context, filePtr, objectName, materialData, layerFlag, lodnr):
     #scn.objects.link(obj)
     #scn.objects.active = obj   
     
+    # Build Edge database to make finding sharp edges easier
+    edgeDict = dict()
+    for edge in mymesh.edges:
+        v1 = edge.vertices[0]
+        v2 = edge.vertices[1]
+        if (v1 > v2): # Swap if out of order
+            temp = v2
+            v2 = v1
+            v1 = temp
+        #print(f"adding edge index {edge.index} as ({v1},{v2}) to edge dictionary")
+        edgeDict[(v1,v2)] = edge.index
+
     print("taggs")    
     loop = True
     sharpEdges = None
@@ -320,7 +332,7 @@ def loadLOD(context, filePtr, objectName, materialData, layerFlag, lodnr):
                     n1 = readULong(filePtr)
                     n2 = readULong(filePtr)
                     sharpEdges.append([n1, n2])
-                #print (sharpEdges)
+                #print ("sharp edges", sharpEdges)
             elif tagName == "#Property#":
                 # Read named property
                 propName  = struct.unpack("64s", filePtr.read(64))[0].decode("utf-8")
@@ -432,14 +444,29 @@ def loadLOD(context, filePtr, objectName, materialData, layerFlag, lodnr):
         
     print("sharp edges")
     # Set sharp edges
+    #if sharpEdges is not None:
+    #    for edge in mymesh.edges:
+    #        v1 = edge.vertices[0]
+    #        v2 = edge.vertices[1]
+    #        if [v1,v2] in sharpEdges:
+    #            mymesh.edges[edge.index].use_edge_sharp = True
+    #        elif [v2,v1] in sharpEdges:
+    #            mymesh.edges[edge.index].use_edge_sharp = True
+
+    # New Code
     if sharpEdges is not None:
-        for edge in mymesh.edges:
-            v1 = edge.vertices[0]
-            v2 = edge.vertices[1]
-            if [v1,v2] in sharpEdges:
-                mymesh.edges[edge.index].use_edge_sharp = True
-            elif [v2,v1] in sharpEdges:
-                mymesh.edges[edge.index].use_edge_sharp = True
+        for sharpEdge in sharpEdges:
+            v1 = sharpEdge[0]
+            v2 = sharpEdge[1]
+            if (v1 > v2): # Swap if out of order
+                temp = v2
+                v2 = v1
+                v1 = temp
+            idx = edgeDict[(v1,v2)]
+            mymesh.edges[idx].use_edge_sharp = True
+
+
+
     #for pair in sharpEdges:
     #    p1 = pair[0]
     #    p2 = pair[1]

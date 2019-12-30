@@ -2,7 +2,7 @@ bl_info = {
     "name": "Arma: Toolbox",
     "description": "Collection of tools for editing Arma 2/3 content",
     "author": "Hans-Joerg \"Alwarren\" Frieden.",
-    "version": (3, 0, 0),
+    "version": (3, 0, 4),
     "blender": (2, 80, 0),
     "location": "View3D > Panels",
     "warning": '',
@@ -150,14 +150,14 @@ class ATBX_OT_rtm_export(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
     bl_description = "Export an Arma 2/3 RTM Animation file"
     
     filename_ext = ".rtm"
-    filter_glob = bpy.props.StringProperty(
+    filter_glob : bpy.props.StringProperty(
             default="*.rtm",
             options={'HIDDEN'})
-    staticPose = bpy.props.BoolProperty(
+    staticPose : bpy.props.BoolProperty(
             name="Static Pose", 
             description="Export the current pose as a static pose", 
             default=False)
-    clipFrames = bpy.props.BoolProperty(
+    clipFrames : bpy.props.BoolProperty(
             name="Clip Frames to [0,1]", 
             description="Do not export frames that are outside the 0,1 interval for RTM files", 
             default=True)
@@ -216,11 +216,11 @@ class ATBX_OT_p3d_export(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
     def execute(self, context):
         if context.view_layer.objects.active == None:
             context.view_layer.objects.active = bpy.data.objects[0]
-            
+
         #try:
         # Open the file and export 
         filePtr = open(self.filepath, "wb")
-        exportMDL(filePtr, self.selectionOnly);
+        exportMDL(self, filePtr, self.selectionOnly);
         filePtr.close()
         
         # Write a temporary O2script file for this
