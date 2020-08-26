@@ -35,7 +35,7 @@ def exportASC(context, fileName):
     # dump the heightfield. One line contains one row of vertices
     row = rowcols
     for v in obj.data.vertices:
-        filePtr.write("{:.4f}".format(v.co[2] * 100))
+        filePtr.write("{:.4f}".format(v.co[2]))
         row -= 1
         if row == 0:
             filePtr.write("\n")
