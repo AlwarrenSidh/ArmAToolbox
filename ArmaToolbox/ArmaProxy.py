@@ -11,8 +11,8 @@ from mathutils import *
 
 def CreateProxyPos(obj, pos, path, index, enclose = None):
     v1 = pos
-    v2 = pos + Vector((0,0,2))
-    v3 = pos + Vector((0,1,0))
+    v2 = pos + Vector((0,0,1))
+    v3 = pos + Vector((0,0.5,0))
     CreateProxy (obj, v1, v2, v3, path, index, enclose)
                       
 

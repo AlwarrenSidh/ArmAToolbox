@@ -1,0 +1,2 @@
+xcopy /y ArmaToolbox\*.* "C:\Users\thoma\AppData\Roaming\Blender Foundation\Blender\2.91\scripts\addons\ArmaToolbox"
+del /s/q "C:\Users\thoma\AppData\Roaming\Blender Foundation\Blender\2.91\scripts\addons\ArmaToolbox\__pycache__"

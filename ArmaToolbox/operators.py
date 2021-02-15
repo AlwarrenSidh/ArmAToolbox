@@ -159,8 +159,8 @@ class ATBX_OT_add_new_proxy(bpy.types.Operator):
 
         i = len(bm.verts)
         v1 = bm.verts.new(cursor_location + Vector((0,0,0)))
-        v2 = bm.verts.new(cursor_location + Vector((0,0,2)))
-        v3 = bm.verts.new(cursor_location + Vector((0,1,0)))
+        v2 = bm.verts.new(cursor_location + Vector((0,0,1)))
+        v3 = bm.verts.new(cursor_location + Vector((0,0.5,0)))
         
         f = bm.faces.new((v1,v2,v3))
         print (v1.index)  
@@ -173,7 +173,17 @@ class ATBX_OT_add_new_proxy(bpy.types.Operator):
         vgrp.add([i+0],1,'ADD')
         vgrp.add([i+1],1,'ADD')
         vgrp.add([i+2],1,'ADD')
-            
+
+        fnd = obj.vertex_groups.find("-all-proxies")
+        if (fnd == -1):
+            vgrp2 = obj.vertex_groups.new(name = "-all-proxies")
+        else:
+            vgrp2 = obj.vertex_groups[fnd]
+        
+        vgrp2.add([i+0],1,'ADD')
+        vgrp2.add([i+1],1,'ADD')
+        vgrp2.add([i+2],1,'ADD')
+
         bpy.ops.object.mode_set(mode="EDIT")
         
         p = obj.armaObjProps.proxyArray.add()
