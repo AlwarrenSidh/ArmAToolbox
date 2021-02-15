@@ -80,3 +80,61 @@ def CopyProxy(objFrom, objTo, proxyName, enclose = None):
     CreateProxy(objTo, v1,v2,v3, proxy.path, proxy.index, enclose)    
     
     return
+
+def SelectProxy(obj, proxyName):
+    mesh = obj.data
+    vgrp = obj.vertex_groups[proxyName]
+    idx = vgrp.index
+    vertx = []
+    # find the first vertex of the proxy in the object we want to copy from
+    for vert in mesh.vertices:
+        grps = [grp for grp in vert.groups if grp.group == idx]
+        if len(grps) > 0: # Should only ever be 0 or 1
+            vertx.append(vert.index)
+
+    sel = bpy.context.tool_settings.mesh_select_mode[:]
+    mode = "VERT"
+    if sel[1] == True:
+        mode = "EDGE"
+    elif sel[2] == True:
+        mode = "FACE"
+
+    bpy.ops.mesh.select_mode(type="VERT")
+    bpy.ops.object.mode_set(mode='OBJECT')
+    
+    mesh.vertices[vertx[0]].select = True
+    mesh.vertices[vertx[1]].select = True
+    mesh.vertices[vertx[2]].select = True
+
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.select_mode(type=mode)
+
+# Rename all proxy groups to a naming scheme @@armaproxy.xxxx starting at newBase
+# Used primarily for joining two objects with proxies
+def RebaseProxies(obj, newBase):
+    newIdx = newBase
+    proxies = []
+    for prox in obj.armaObjProps.proxyArray:
+        oldName = prox.name
+        group = obj.vertex_groups[oldName]
+        proxies.append(group)
+        group.name = "@@armaproxy_%03d" % newIdx
+        newIdx = newIdx + 1
+    
+    index = 0
+    for prox in obj.armaObjProps.proxyArray:
+        group = proxies[index]
+        group.name = "@@armaproxy.%03d" % (newBase + index)
+        index = index + 1
+        prox.name = group.name
+
+def GetMaxProxy(obj):
+    highIndex = -1
+    for prox in obj.armaObjProps.proxyArray:
+        index = 0
+        names = prox.name.split(".")
+        if len(names) == 2:
+            index = int(names[1])
+        if highIndex < index:
+            highIndex = index
+    return highIndex

@@ -82,6 +82,7 @@ textureClass = [
             ("Custom", "Custom", "Custom Procedural String")
 ]
 
+
 ###
 ##   Custom Property Collections
 #
@@ -166,6 +167,20 @@ class ArmaToolboxProperties(bpy.types.PropertyGroup):
           subtype='TRANSLATION')
     centerBone : bpy.props.StringProperty(name="Center Of Animation", 
           description="The center of animation for calculating the motion vector")
+    
+    # model.cfg
+    exportBone : bpy.props.StringProperty(name="Bone to export", 
+          description="Export for model.cfg")
+    selectionName : bpy.props.StringProperty(name="selection name", description="selection that is animated")
+    animSource : bpy.props.StringProperty(name="Animation source", default="reloadMagazine", description="Name of the animation source")
+    prefixString : bpy.props.StringProperty(name="Output Prefix String", default="", description="String to prefix output with")
+    outputFile : bpy.props.StringProperty(
+        name="Output File", 
+        description="Output file for model.cfg inclusion", 
+        subtype="FILE_PATH", 
+        default="")
+    
+
     
 class ArmaToolboxMaterialProperties(bpy.types.PropertyGroup):
     texture : bpy.props.StringProperty(
@@ -280,6 +295,9 @@ class ArmaToolboxGUIProps(bpy.types.PropertyGroup):
     hpCreatorSelectionName : bpy.props.StringProperty("hpCreatorSelectionName", description = "Name of the hitpoint selection create", default="_point")
     hpCreatorRadius : bpy.props.FloatProperty("hpCreatorRadius", description = "radius of hitpont sphere", default = 0.3, min = 0.001)
 
+    # UV Island angle
+    uvIslandAngle : bpy.props.FloatProperty("maxUVAngle", description="Maximum angle for UV island stretch", default = 5)
+
 class ArmaToolboxCopyHelper(bpy.types.PropertyGroup):
     name : bpy.props.StringProperty(name="name", 
         description = "Object Name")
@@ -351,3 +369,10 @@ def unregister():
     from bpy.utils import unregister_class
     for cls in prpclasses:
         unregister_class(cls)
+
+
+def lodName(lod):
+    for l in lodPresets:
+        f = float(l[0])
+        if lod == f:
+            return l[1]

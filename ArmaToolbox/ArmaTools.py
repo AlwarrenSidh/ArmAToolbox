@@ -6,6 +6,8 @@ Created on 16.01.2014
 
 import bpy
 import bmesh
+from ArmaProxy import RebaseProxies, GetMaxProxy
+
 
 def bulkRename(context, frm, t):
     mats = bpy.data.materials
@@ -574,7 +576,7 @@ def hitpointCreator(context, selection, radius):
     bm.free()
     
     bpy.ops.object.mode_set(mode='EDIT')
-    bpy.context.active_object.vertex_groups.new(selection)
+    bpy.context.active_object.vertex_groups.new(name=selection)
     bpy.ops.object.vertex_group_assign()
     return
 
@@ -601,3 +603,91 @@ def tessNonQuads(context):
         bpy.ops.mesh.quads_convert_to_tris(quad_method='BEAUTY', ngon_method='BEAUTY')
         bpy.ops.object.mode_set(mode='OBJECT')
         obj.select_set(False)
+
+
+def messageReport(myop, message):
+    myop.report({'INFO'}, message)
+    bpy.ops.wm.redraw_timer(type='DRAW_WIN_SWAP', iterations=1)
+
+def optimizeSectionCount(context):
+    obj = context.active_object
+    arma = obj.armaObjProps
+    tempGrpName = "-TOOLBOX_OPTIMIZE_TEMP"
+
+    # Set to FACE select mode
+    bpy.ops.mesh.select_mode(type="FACE", action="ENABLE")
+
+    # create a vertex group with the current selection
+    vgrp = bpy.context.active_object.vertex_groups.new(name=tempGrpName)
+    bpy.ops.object.vertex_group_assign()
+
+    # select all and sort mesh elements by Material
+    bpy.ops.mesh.reveal() # Make sure everything is visible
+    bpy.ops.mesh.select_all(action='SELECT')
+    bpy.ops.mesh.sort_elements(type='MATERIAL', reverse=False)
+
+    # select the vertex group only
+    bpy.ops.mesh.select_all(action='DESELECT')                  # deselect all
+    bpy.ops.object.vertex_group_set_active(group=tempGrpName)   # make sure our group is active
+    bpy.ops.object.vertex_group_select()                        # select them
+
+    # sort mesh elements by Selected, reverse
+    bpy.ops.mesh.sort_elements(type='SELECTED', reverse=True)
+
+    # delete vertex group again
+    bpy.ops.object.vertex_group_remove()
+
+# join objJoin to objTarget, merging the proxy arrays.
+# Note that no comparison is made to verify that the
+# objects are the same LOD
+def joinObjectToObject(context):
+    objTarget = context.active_object
+    objsJoin = [obj for obj in context.selected_objects if obj != context.active_object]
+
+    for objJoin in objsJoin:
+        newSecondBase = GetMaxProxy(objTarget)
+        if newSecondBase != -1:
+            # Rebase proxies if the current object has any
+            RebaseProxies(objJoin, newSecondBase+1)
+
+        for p in objJoin.armaObjProps.proxyArray:
+            n = objTarget.armaObjProps.proxyArray.add()
+            n.name = p.name
+            n.index = p.index
+            n.path = p.path
+
+    bpy.ops.object.join()
+
+
+def selectBadUV(self, context, maxAngleDiff = 0.001):
+    bm = bmesh.from_edit_mesh(context.active_object.data)
+    uv_layers = bm.loops.layers.uv.verify()
+
+    bpy.ops.uv.select_all(action='DESELECT')
+
+    for face in bm.faces:
+        loops = len(face.loops)
+
+        for i in range(loops):
+            i2 = (i + 1) % loops
+            i3 = (i + 2) % loops
+            a = face.loops[i].vert.co - face.loops[i2].vert.co
+            b = face.loops[i].vert.co - face.loops[i3].vert.co
+
+            uva = face.loops[i][uv_layers].uv - face.loops[i2][uv_layers].uv
+            uvb = face.loops[i][uv_layers].uv - face.loops[i3][uv_layers].uv
+
+            if a.length > 0 and b.length > 0:
+                wa = a.angle(b)
+            else:
+                wa = 1000
+
+            if uva.length > 0 and uvb.length > 0:
+                ua = uva.angle(uvb)
+            else:
+                ua = 0
+
+            if (abs(wa - ua) > maxAngleDiff):
+                face.loops[i][uv_layers].select = True
+                face.loops[i2][uv_layers].select = True
+                face.loops[i3][uv_layers].select = True

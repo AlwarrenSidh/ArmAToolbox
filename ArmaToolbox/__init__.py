@@ -1,8 +1,8 @@
 bl_info = {
     "name": "Arma: Toolbox",
-    "description": "Collection of tools for editing Arma 2/3 content",
+    "description": "Collection of tools for editing RV Engine content",
     "author": "Hans-Joerg \"Alwarren\" Frieden.",
-    "version": (3, 0, 4),
+    "version": (3, 1, 1),
     "blender": (2, 80, 0),
     "location": "View3D > Panels",
     "warning": '',
@@ -66,9 +66,20 @@ class ArmaToolboxPreferences(AddonPreferences):
 
     def draw(self, context):
         layout = self.layout
-        layout.prop(self, "o2ScriptProp")
-        layout.prop(self, "toolBoxShelf")
-        layout.prop(self, "propertyShelf")
+
+        box = layout.box()
+        box.label(text="Paths")
+        box.prop(self, "o2ScriptProp")
+
+        box = layout.box()
+        box.label(text="Shelf Names")
+        box.prop(self, "toolBoxShelf")
+        box.prop(self, "propertyShelf")
+
+        #box = layout.box()
+        #box.label(text="Defaults")
+        #box.prop(self, "defaultApplyModifiers")
+        #box.prop(self, "defaultMergeLOD")
 
 def updateMassArray(obj):
     finalArray = {}
@@ -115,6 +126,9 @@ def vgroupExtra(self, context):
     obj = context.object
     arma = obj.armaObjProps
     actGrp = obj.vertex_groups.active_index
+    if obj.mode == 'EDIT':
+        row = layout.row()
+        row.operator("armatoolbox.vgroup_redefine")
     if arma.isArmaObject and (arma.lod == '1.000e+13' or arma.lod == '4.000e+13'):
         if actGrp>=0:
             row = layout.row()
@@ -211,6 +225,16 @@ class ATBX_OT_p3d_export(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
        description = "Export selected objects only", 
        default = False)
 
+    applyModifiers : bpy.props.BoolProperty(
+        name="Apply Modifies",
+        description="Apply modifiers before export (experimental)",
+        default = True)
+
+    mergeSameLOD: bpy.props.BoolProperty(
+        name="Merge Same LODs",
+        description="Merge objects with the same LOD in exported file (experimental)",
+        default= True)
+
     filename_ext = ".p3d"
     
     def execute(self, context):
@@ -220,7 +244,8 @@ class ATBX_OT_p3d_export(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
         #try:
         # Open the file and export 
         filePtr = open(self.filepath, "wb")
-        exportMDL(self, filePtr, self.selectionOnly);
+        exportMDL(self, filePtr, self.selectionOnly,
+                  self.applyModifiers, self.mergeSameLOD)
         filePtr.close()
         
         # Write a temporary O2script file for this

@@ -11,13 +11,13 @@ class ATBX_PT_properties_panel(bpy.types.Panel):
     bl_category = "Arma 3"
     bl_label = "Arma Object Properties"
     #bl_options = {'DEFAULT_CLOSED'}
-
+    
     #@classmethod
     #def poll(cls, context):
         ## Visible when there is a selected object, it is a mesh
     #    obj = context.active_object
-    #
-    #    return (obj
+    #   
+    #    return (obj 
     #        and obj.select_get() == True
     #        and (obj.type == "MESH" or obj.type == "ARMATURE") )
 
@@ -26,14 +26,14 @@ class ATBX_PT_properties_panel(bpy.types.Panel):
         if obj != None:
             arma = obj.armaObjProps
             self.layout.prop(arma, "isArmaObject", text="")
-
+            
     def draw(self, context):
         obj = context.active_object
         layout = self.layout
 
         if obj != None:
             self.enable = obj.select_get()
-
+            
             arma = obj.armaObjProps
             layout.active = arma.isArmaObject
             if obj.type == "MESH":
@@ -66,9 +66,9 @@ class ATBX_PT_properties_panel(bpy.types.Panel):
                 row = layout.row()
                 row.label(text = "Named Properties")
                 row = layout.row()
-
+                
                 row = layout.row()
-                row.template_list(listtype_name = "ATBX_UL_named_prop_list",
+                row.template_list(listtype_name = "ATBX_UL_named_prop_list", 
                                 dataptr = arma,
                                 propname = "namedProps",
                                 active_dataptr = arma,
@@ -76,8 +76,8 @@ class ATBX_PT_properties_panel(bpy.types.Panel):
                                 list_id="ATBX_namedProps");
                 col = row.column(align=True)
                 col.operator("armatoolbox.add_prop", icon="ADD")
-                col.operator("armatoolbox.rem_prop", icon="REMOVE")
-
+                col.operator("armatoolbox.rem_prop", icon="REMOVE")    
+                
                 if arma.namedPropIndex > -1 and arma.namedProps.__len__() > arma.namedPropIndex:
                     nprop = arma.namedProps[arma.namedPropIndex]
                     box = layout.box()
@@ -114,14 +114,14 @@ class ATBX_PT_properties_panel(bpy.types.Panel):
                 row = layout.row()
                 row.operator("armatoolbox.rem_all_key_frames", text="Clear", icon="CANCEL")
                 row = layout.row()
-                row.operator("armatoolbox.add_all_key_frames", text="Add Armature Timeline Keys", icon="KEYFRAME")
+                row.operator("armatoolbox.add_all_key_frames", text="Add Armature Timeline Keys", icon="RESTRICT_INSTANCED_ON")
                 col = layout.column(align=True)
                 split = col.split(factor=0.15)
                 if guiProps.framePanelOpen:
                     split.prop(guiProps, "framePanelOpen", text="", icon='DOWNARROW_HLT')
                 else:
                     split.prop(guiProps, "framePanelOpen", text="", icon='RIGHTARROW')
-
+                    
                 split.operator("armatoolbox.add_frame_range", text="Add Frame Range", icon="ARROW_LEFTRIGHT")
                 if guiProps.framePanelOpen:
                     box = layout.box()
@@ -130,11 +130,11 @@ class ATBX_PT_properties_panel(bpy.types.Panel):
                         guiProps.framePanelStart = context.scene.frame_start
                     if guiProps.framePanelEnd == -1:
                         guiProps.framePanelEnd = context.scene.frame_end
-                    sub.label(text = "Frame Range")
+                    sub.label(text = "Frame Range")    
                     sub.prop(guiProps, "framePanelStart", text="Start")
                     sub.prop(guiProps, "framePanelEnd", text="End")
                     sub.prop(guiProps, "framePanelStep", text="Step")
-
+                
                 box = layout.box()
                 row = box.row()
                 row.label(text = "RTM Motion Vector")
@@ -156,9 +156,10 @@ class ATBX_PT_proxy_panel(bpy.types.Panel):
     def poll(cls, context):
         ## Visible when there is a selected object, it is a mesh
         obj = context.active_object
-
-        return (obj
+       
+        return (obj 
             and obj.select_get() == True
+            and obj.armaObjProps != None
             and obj.armaObjProps.isArmaObject == True
             and (obj.type == "MESH" or obj.type == "ARMATURE") )
 
@@ -168,7 +169,7 @@ class ATBX_PT_proxy_panel(bpy.types.Panel):
         row = layout.row()
         row.operator("armatoolbox.add_new_proxy", text = "Add Proxy")
         row.operator("armatoolbox.sync_proxies", text = "Sync with model")
-
+        
         for prox in obj.armaObjProps.proxyArray:
             box = layout.box()
             row = box.row()
@@ -184,14 +185,13 @@ class ATBX_PT_proxy_panel(bpy.types.Panel):
                 if name.upper() == "DRIVER" or name.upper() == "COMMANDER" or name.upper() == "GUNNER":
                     iconName="GHOST_ENABLED"
                 if name[:5].upper() == "CARGO":
-                    iconName="GHOST_ENABLED"
+                    iconName="GHOST_ENABLED" 
                 row.label(text = name, icon=iconName)
-
-
+            
+            
             if prox.open:
-                # For later
-                ##row.operator("armatoolbox.deleteproxy", "", icon="X")
-                ##row.operator("armatoolbox.selectproxy", "", icon="VIEWZOOM")
+                selectOp = row.operator("armatoolbox.select_proxy", text="", icon="VIEWZOOM", emboss=False)
+                selectOp.proxyName = prox.name
                 copyOp = row.operator("armatoolbox.copy_proxy", text = "", icon="PASTEDOWN", emboss=False)
                 copyOp.copyProxyName = prox.name
                 delOp = row.operator("armatoolbox.delete_proxy", text = "", icon="X", emboss=False)
@@ -201,9 +201,11 @@ class ATBX_PT_proxy_panel(bpy.types.Panel):
                 row = box.row()
                 row.prop(prox, "index", text = "Index")
             else:
+                selectOp = row.operator("armatoolbox.select_proxy", text="", icon="VIEWZOOM", emboss=False)
+                selectOp.proxyName = prox.name
                 delOp = row.operator("armatoolbox.delete_proxy", text = "", icon="X", emboss=False)
                 delOp.proxyName = prox.name
-
+                
         row = layout.row()
         row.operator("armatoolbox.add_new_proxy", text = "Add Proxy")
         row.operator("armatoolbox.sync_proxies", text = "Sync with model")
@@ -215,10 +217,10 @@ class ATBX_PT_weight_tool_panel(bpy.types.Panel):
     bl_label = "Arma Weight Tools"
     bl_category = "Arma 3 Tools"
     bl_options = {'DEFAULT_CLOSED'}
-
+    
     def draw(self, context):
         layout = self.layout
-
+        
         row = layout.row()
         row.operator("armatoolbox.sel_weights", text = "Problematic Weighted Vertices")
         row = layout.row()
@@ -246,7 +248,7 @@ class ATBX_PT_material_settings_panel(bpy.types.Panel):
         obj = bpy.context.active_object
         layout = self.layout
         self.enable = obj.active_material
-
+        
         if self.enable:
             arma = obj.active_material.armaMatProps
             box = layout.box()
@@ -263,7 +265,7 @@ class ATBX_PT_material_settings_panel(bpy.types.Panel):
             elif matType == 'Custom':
                 row.prop(arma, "colorString", text = "Custom Procedural Texture")
             row = box.row()
-
+                    
             # end of box
             layout.separator()
             row = layout.row()
@@ -276,37 +278,37 @@ class ATBX_PT_tool_panel(bpy.types.Panel):
     bl_label = "Arma Tools"
     bl_category = "Arma 3 Tools"
     bl_options = {'DEFAULT_CLOSED'}
-
+    
     lastId = -1
-
+    
     def safeAddRenamable(self, name, prop):
-        if len(name) == 0:
+        if len(name) == 0: 
             return None
-
+       
         for p in prop:
             if p.name == name:
                 return None
-
+        
         item = prop.add()
         item.name = name
-        return item
-
+        return item 
+ 
     def fillList(self, guiProps):
         # Fill the renamable list
         guiProps.renamableList.clear()
-
+            
         mats = bpy.data.materials
-
+            
         for mat in mats:
             self.safeAddRenamable(mat.armaMatProps.texture, guiProps.renamableList)
             self.safeAddRenamable(mat.armaMatProps.rvMat, guiProps.renamableList)
             self.safeAddRenamable(mat.armaMatProps.colorString, guiProps.renamableList)
-
+ 
     def draw(self, context):
         layout = self.layout
         guiProps = context.window_manager.armaGUIProps
         col = layout.column(align=True)
-
+        
         # Bulk Renamer
         split = col.split(factor=0.15)
         if guiProps.bulkRenamePanelOpen:
@@ -314,22 +316,22 @@ class ATBX_PT_tool_panel(bpy.types.Panel):
         else:
             split.prop(guiProps, "bulkRenamePanelOpen", text="", icon='RIGHTARROW')
         split.operator("armatoolbox.bulk_rename", text = "Path Rename")
-
+        
         # Bulk Renamer Settings
         if guiProps.bulkRenamePanelOpen:
             box = col.column(align=True).box().column()
             row = box.row()
-
+            
             self.fillList(guiProps)
-
-            row.template_list(listtype_name = "ATBX_UL_named_prop_list",
+             
+            row.template_list(listtype_name = "ATBX_UL_named_prop_list", 
                               dataptr = guiProps,
                               propname = "renamableList",
                               active_dataptr = guiProps,
                               active_propname="renamableListIndex",
                               list_id = "renamableList")
-
-
+            
+            
             if guiProps.renamableListIndex > -1 and guiProps.renamableList.__len__() > guiProps.renamableListIndex:
                 guiProps.renameFrom = guiProps.renamableList[guiProps.renamableListIndex].name
                 row = box.row()
@@ -341,7 +343,7 @@ class ATBX_PT_tool_panel(bpy.types.Panel):
                 row.label(text = "Rename From")
                 row = box.row()
                 row.label(text = "To")
-
+        
         # Bulk Renamer
         row = layout.row()
         col = row.column(align=True)
@@ -351,7 +353,7 @@ class ATBX_PT_tool_panel(bpy.types.Panel):
         else:
             split.prop(guiProps, "bulkReparentPanelOpen", text="", icon='RIGHTARROW')
         split.operator("armatoolbox.bulk_reparent", text = "Change File Parent")
-
+      
         # Bulk Reparent Settings
         if guiProps.bulkReparentPanelOpen:
             box = col.column(align=True).box().column()
@@ -360,7 +362,7 @@ class ATBX_PT_tool_panel(bpy.types.Panel):
             row.prop(guiProps, "parentFrom", text = "Change Parent From")
             row = box.row()
             row.prop(guiProps, "parentTo", text = "To")
-
+            
         # Selection Renamer
         row = layout.row()
         col = row.column(align=True)
@@ -370,16 +372,16 @@ class ATBX_PT_tool_panel(bpy.types.Panel):
         else:
             split.prop(guiProps, "selectionRenamePanelOpen", text="", icon='RIGHTARROW')
         split.operator("armatoolbox.bulk_rename_selection", text = "Rename selections / vertex groups")
-
-        # Selection Renamer settings
+        
+        # Selection Renamer settings    
         if guiProps.selectionRenamePanelOpen:
             box = col.column(align=True).box().column()
             row = box.row()
             row = box.row()
             row.prop(guiProps, "renameSelectionFrom", text = "Rename Selection From")
             row = box.row()
-            row.prop(guiProps, "renameSelectionTo", text = "To")
-
+            row.prop(guiProps, "renameSelectionTo", text = "To")   
+        
         # Hitpoint Creator
         row = layout.row()
         col = row.column(align=True)
@@ -389,7 +391,7 @@ class ATBX_PT_tool_panel(bpy.types.Panel):
         else:
             split.prop(guiProps, "hitpointCreatorPanelOpen", text="", icon='RIGHTARROW')
         split.operator("armatoolbox.hitpoint_creator", text = "Create Hitpoint Cloud")
-
+        
         # Hitpoint Creator Settings
         if guiProps.hitpointCreatorPanelOpen:
             box = col.column(align=True).box().column()
@@ -397,8 +399,8 @@ class ATBX_PT_tool_panel(bpy.types.Panel):
             row = box.row()
             row.prop(guiProps, "hpCreatorSelectionName", text = "Selection Name")
             row = box.row()
-            row.prop(guiProps, "hpCreatorRadius", text = "Sphere Radius")
-
+            row.prop(guiProps, "hpCreatorRadius", text = "Sphere Radius") 
+          
         # Component Creator
         row = layout.row()
         row.operator("armatoolbox.create_components", text = "Create Geometry Components")
@@ -407,6 +409,10 @@ class ATBX_PT_tool_panel(bpy.types.Panel):
         row = layout.row()
         row.operator("armatoolbox.ensure_quads", text = "Tesselate all non-quads")
 
+        # Section Optimize
+        row = layout.row()
+        row.operator("armatoolbox.section_optimize", text = "Optimize Section Count")
+
 class ATBX_PT_relocation_tool_panel(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -414,7 +420,7 @@ class ATBX_PT_relocation_tool_panel(bpy.types.Panel):
     bl_label = "Arma Relocation Tools"
     bl_category = "Arma 3 Tools"
     bl_options = {'DEFAULT_CLOSED'}
-
+    
     def draw(self, context):
         layout = self.layout
         guiProps = context.window_manager.armaGUIProps
@@ -431,7 +437,7 @@ class ATBX_PT_material_relocation_panel(bpy.types.Panel):
     bl_label = "Arma Material Relocation"
     bl_category = "Arma 3 Tools"
     bl_options = {'DEFAULT_CLOSED'}
-
+    
     def draw(self, context):
         layout = self.layout
         guiProps = context.window_manager.armaGUIProps
@@ -440,17 +446,17 @@ class ATBX_PT_material_relocation_panel(bpy.types.Panel):
         layout.prop(guiProps, "matAutoHandleRV", text = "Automatically translate RVMat")
         data = bpy.data
         materials = data.materials
-
+        
         texNames = []
         matNames = []
-
+        
         for mat in materials:
             matName, texName = RVMatTools.mt_getMaterialInfo(mat)
             if len(texName) > 0 and texName not in texNames and texName[0] is not "#":
                 texNames.append(texName)
             if len(matName)> 0 and matName not in matNames:
                 matNames.append(matName)
-
+            
         for tex in texNames:
             box = layout.box()
             row = box.row()
@@ -458,8 +464,8 @@ class ATBX_PT_material_relocation_panel(bpy.types.Panel):
             p = row.operator("armatoolbox.materialrelocator", text = "Relocate")
             p.texture = tex
             p.material = ""
-
-        for mat in matNames:
+            
+        for mat in matNames:    
             box = layout.box()
             row = box.row()
             row.label(text = mat)
@@ -471,7 +477,7 @@ def createToggleBox(context, layout, propName, label, openOp = None):
     box = layout.box()
     row = box.row()
     guiProp = context.window_manager.armaGUIProps
-
+    
     if guiProp.is_property_set(propName) == True and guiProp[propName] == True:
         toggle = row.operator("armatoolbox.toggleguiprop", icon="TRIA_DOWN", emboss=False)
         toggle.prop = propName
@@ -483,7 +489,7 @@ def createToggleBox(context, layout, propName, label, openOp = None):
         toggle = row.operator("armatoolbox.toggleguiprop", icon="TRIA_RIGHT", emboss=False)
         toggle.prop = propName
         row.label(text = label)
-
+        
     return box
 
 class ATBX_PT_proxy_tools_panel(bpy.types.Panel):
@@ -492,7 +498,7 @@ class ATBX_PT_proxy_tools_panel(bpy.types.Panel):
     bl_label = "Proxy Tools"
     bl_category = "Arma 3 Tools"
     bl_options = {'DEFAULT_CLOSED'}
-
+    
     def draw(self, context):
         obj = context.active_object
         guiProp = context.window_manager.armaGUIProps
@@ -510,13 +516,13 @@ class ATBX_PT_proxy_tools_panel(bpy.types.Panel):
             bx = row.box()
             bx.label(text = "Enclose in selection")
             bx.prop(guiProp, "mapProxyEnclose", text="(Empty for none)")
-
+        
         layout.separator()
-
+        
         layout.operator("armatoolbox.proxypathchanger", text = "Proxy Path Change")
         layout.prop(guiProp, "proxyPathFrom", text = "Proxy path from")
         layout.prop(guiProp, "proxyPathTo", text = "Proxy path to")
-        layout.separator()
+        layout.separator()               
 
 class ATBX_PT_hf_properties_panel(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
@@ -524,42 +530,42 @@ class ATBX_PT_hf_properties_panel(bpy.types.Panel):
     bl_category = "Arma 3"
     bl_label = "Arma Heightfield Properties"
     bl_options = {'DEFAULT_CLOSED'}
-
+    
     @classmethod
     def poll(cls, context):
         ## Visible when there is a selected object, it is a mesh
         obj = context.active_object
-
-        return (obj
+       
+        return (obj 
             and obj.select_get() == True
             and (obj.type == "MESH" or obj.type == "ARMATURE") )
-
+        
     def draw_header(self, context):
         obj = context.active_object
         hrp = obj.armaHFProps
 
         self.layout.prop(hrp, "isHeightfield", text="")
-
+        
     def draw(self, context):
         obj = context.active_object
         layout = self.layout
         self.enable = obj.select_get()
-
+        
         hrp = obj.armaHFProps
         layout.active = hrp.isHeightfield
         if obj.type == "MESH" and hrp.isHeightfield:
             row = layout.row()
             row.prop(hrp, "cellSize", text = "Cell Size")
-
+            
             row = layout.row()
             row.prop(hrp, "northing", text = "Northing")
-
+            
             row = layout.row()
             row.prop(hrp, "easting", text = "Easting")
-
+            
             row = layout.row()
             row.prop(hrp, "undefVal", text = "NODATA_value")
-
+            
             verts = len(obj.data.vertices)
             verts = sqrt(verts)
             row = layout.row()
@@ -577,34 +583,34 @@ class ATBX_PT_selection_maker(bpy.types.Panel):
     def poll(self, context):
         obj = context.active_object
         arma = obj.armaObjProps
-
+        
         return context.active_object.active_material!=None and arma.isArmaObject == True
 
     def draw(self, context):
         guiProps = context.window_manager.armaGUIProps
         obj = bpy.context.active_object
         layout = self.layout
-        layout.prop(guiProps, "hiddenSelectionName", text="Hidden Selection")
+        layout.prop(guiProps, "hiddenSelectionName", text="Hidden Selection")            
 
-class ATBX_PT_nass_tools_panel(bpy.types.Panel):
+class ATBX_PT_mass_tools_panel(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_label = "Mass Tools"
     bl_category = "Arma 3 Tools"
-
+    
     @classmethod
     def poll(cls, context):
         ## Visible when there is a selected object, it is a mesh
         obj = context.active_object
-
+        
         return (obj
             and obj.select_get() == True
             and obj.armaObjProps.isArmaObject == True
-            and obj.type == "MESH"
+            and obj.type == "MESH" 
             and (obj.armaObjProps.lod == '1.000e+13' or obj.armaObjProps.lod == '4.000e+13')
             and obj.mode == 'EDIT'
-            )
-
+            )  
+        
     def draw(self, context):
         obj = context.active_object
         guiProp = context.window_manager.armaGUIProps
@@ -612,12 +618,73 @@ class ATBX_PT_nass_tools_panel(bpy.types.Panel):
         row = layout.row()
 
         guiProps = context.window_manager.armaGUIProps
-
+                
         row = layout.row()
         row.prop(guiProps, "vertexWeight", text = "Weight To Set")
         layout.operator("armatoolbox.setmass", text = "Set Mass on selected")
         layout.operator("armatoolbox.distmass", text = "Distribute Mass to selected")
 
+
+class ATBX_PT_model_cfg_panel(bpy.types.Panel):
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_label = "Model Cfg"
+    bl_category = "Arma 3 Tools"
+    
+    @classmethod
+    def poll(cls, context):
+        ## Visible when there is a selected object, it is an armature
+        obj = context.active_object
+        
+        return (obj
+            and obj.select_get() == True
+            and obj.armaObjProps.isArmaObject == True
+            and obj.type == "ARMATURE"
+            )  
+        
+    def draw(self, context):
+        obj = context.active_object
+        arma = obj.armaObjProps
+        guiProp = context.window_manager.armaGUIProps
+        layout = self.layout
+        row = layout.row()
+
+        guiProps = context.window_manager.armaGUIProps
+                
+        row = layout.row()
+        row.prop_search(arma, "exportBone", obj.data, "bones",  text="")
+
+        row = layout.row()
+        row.prop(arma, "selectionName", text = "selection")
+        row = layout.row()
+        row.prop(arma, "animSource", text = "selection")
+        row = layout.row()
+
+        row = layout.row()
+        row.prop(arma, "prefixString", text = "Prefix for the Output")
+        row = layout.row()
+        row.prop(arma, "outputFile", text = "Output to write to")
+        row = layout.row()
+
+        #row.operator("armatoolbox.exportbone", text="Export to model.cfg")        
+
+
+class ATBX_PT_uv_tools(bpy.types.Panel):
+    bl_label = "Arma 3 UV"
+    bl_space_type = 'IMAGE_EDITOR'
+    bl_region_type = 'UI'
+    bl_category = "View"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        layout = self.layout
+        row = layout.row()
+        box = row.box()
+        guiProps = context.window_manager.armaGUIProps
+        box.prop(guiProps, "uvIslandAngle",
+                 text="Maximum Angle Error (Degrees)")
+        box.operator("armatoolbox.select_bad_uv",
+                     text="Select Degenerate Islands")
 
 
 panel_classes = (
@@ -631,9 +698,10 @@ panel_classes = (
     ATBX_PT_proxy_tools_panel,
     ATBX_PT_hf_properties_panel,
     ATBX_PT_selection_maker,
-    ATBX_PT_nass_tools_panel,
+    ATBX_PT_mass_tools_panel,
+    ATBX_PT_uv_tools
+#    ATBX_PT_model_cfg_panel
 )
-
 
 def register():
     from bpy.utils import register_class

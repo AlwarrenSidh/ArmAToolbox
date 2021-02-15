@@ -98,19 +98,19 @@ def importASC(context, fileName):
     mymesh = bpy.data.meshes.new(name="heightfield")
     mymesh.from_pydata(verts, [], faces) 
 
-    mymesh.update(True)
+    #mymesh.update(True)
 
     obj = bpy.data.objects.new(objName, mymesh)
     
     scn = bpy.context.scene
-    scn.objects.link(obj)
-    scn.objects.active = obj   
+    scn.collection.objects.link(obj)
+    #scn.collection.objects.active = obj
     
     xext = (ncols * cellsize)/100;
     yext = (nrows * cellsize)/100;
     
     # Unmap the polygon flat   
-    mymesh.uv_textures.new(name="Terrain")
+    mymesh.uv_layers.new(name="Terrain")
     layer = mymesh.uv_layers[-1]
     index = 0
     for f in mymesh.polygons:

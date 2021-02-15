@@ -9,6 +9,9 @@ import os
 import math
 import struct
 import bmesh
+import ArmaTools
+
+from properties import lodName
 
 def stripAddonPath(path):
     if path == "" or path == None: 
@@ -87,7 +90,7 @@ def writeBytes(filePtr, value):
 ###
 ## Export a single object as a LOD into the P3D file        
 #
-def writeNormals(filePtr, mesh, numberOfNormals):
+def OLDwriteNormals(filePtr, mesh, numberOfNormals):
     for v in range(0,numberOfNormals):
         writeFloat(filePtr, 0)
         writeFloat(filePtr, 1)
@@ -95,6 +98,19 @@ def writeNormals(filePtr, mesh, numberOfNormals):
     
     #return v
 
+# FaceNormals must be inverted (-X, -Y, -Z) for clockwise vertex order (default for DirectX), and not changed for counterclockwise order.
+def writeNormals(filePtr, mesh, numberOfNormals):
+    print("faces = ", len(mesh.polygons))
+    mesh.calc_normals_split()
+    for poly in mesh.polygons:
+        #print("index = ", poly.index)
+        loops = poly.loop_indices
+        for l in loops:
+            normal = mesh.loops[l].normal
+            writeFloat(filePtr, -normal[0])
+            writeFloat(filePtr, -normal[1])
+            writeFloat(filePtr, -normal[2])
+            #print("normal = " , normal)
 
 def writeVertices(filePtr, mesh):
     for v in mesh.vertices:
@@ -161,7 +177,7 @@ def proxyIndex(index):
 # to the list of vertices. Then, cycle over the list and dump them.
 #
 # Potential issue: Memory consumption might be too high.
-def writeNamedSelection(filePtr, obj, mesh, idx):
+""" def writeNamedSelection(filePtr, obj, mesh, idx):
     name = obj.vertex_groups[idx].name
     writeByte(filePtr, 1) # Always active
     # Check the name for a proxy name
@@ -191,11 +207,12 @@ def writeNamedSelection(filePtr, obj, mesh, idx):
             else:
                 writeByte(filePtr, 0)
         else:
-            writeByte(filePtr, 0)
+            writeByte(filePtr, 0) 
 
 def OLDwriteNamedSelections(filePtr, obj, mesh):
     for idx in range(len(obj.vertex_groups)):
         writeNamedSelection(filePtr, obj, mesh, idx)
+"""
 
 def fullNameIfProxy(obj,name):
     if name in obj.armaObjProps.proxyArray:
@@ -360,7 +377,10 @@ def writeUVSet(filePtr, layer, mesh, obj, totalUVs, idx):
     for i, polygon in enumerate(mesh.polygons):
         for vertIdx, loopindex in enumerate(polygon.loop_indices):
             meshloop = mesh.loops[vertIdx]
-            uv = mesh.uv_layers[idx].data[loopindex].uv
+            try:
+                uv = mesh.uv_layers[idx].data[loopindex].uv
+            except:
+                uv = [0,0]
             uvPair = [uv[0],uv[1]]
             writeFloat(filePtr, uvPair[0])
             writeFloat(filePtr, 1-uvPair[1])
@@ -393,6 +413,8 @@ def export_lod(filePtr, obj, wm, idx):
     if lod < 0:
         lod = -lod
     
+    print("lod = ", lod, lodName(lod))
+
     #if lod == 1.000e+13 or lod == 4.000e+13:
     #    checkMass(obj, lod, mesh)
 
@@ -443,8 +465,8 @@ def export_lod(filePtr, obj, wm, idx):
     print("taggs: named props")
     # Write named properties
     for prop in obj.armaObjProps.namedProps:
-        name = prop.name;
-        value = prop.value;
+        name = prop.name
+        value = prop.value
         writeNamedProperty(filePtr, name, value)
     
     print("taggs: uvsets")
@@ -456,6 +478,7 @@ def export_lod(filePtr, obj, wm, idx):
     
     uvt = mesh.uv_layers
     for i,layer in enumerate(uvt):
+        print("Writing UV Set ", i)
         writeUVSet(filePtr, layer, mesh, obj, totalUVs, i)
     
         
@@ -469,8 +492,76 @@ def export_lod(filePtr, obj, wm, idx):
         writeFloat(filePtr, lod)
     
     
+def sameLod(objects, index):
+    print("index = ", index, "len = ", len(objects))
+    if (index + 1) >= len(objects):
+        return False
+    obj = objects[index]
+    obj2 = objects[index + 1]
+    # Handle Shadows by lod
+    if lodKey(obj) == 1.000e+4 and lodKey(obj2) == 1.000e+4:
+        if obj.armaObjProps.lodDistance == obj2.armaObjProps.lodDistance:
+            return True
+        else:
+            return False
+
+    # normal compare
+    if lodKey(obj) == lodKey(obj2):
+        return True
+
+    return False
+
+def duplicateObject(obj):
+    newObj = obj.copy()
+    newObj.data = obj.data.copy()
+
+    # Copy Modifiers
+    for mSrc in obj.modifiers:
+        mDst = newObj.modifiers.get(mSrc.name, None)
+        if not mDst:
+            mDst = newObj.modifiers.new(mSrc.name, mSrc.type)
+
+        # collect names of writable properties
+        properties = [p.identifier for p in mSrc.bl_rna.properties
+                    if not p.is_readonly]
+
+        # copy those properties
+        for prop in properties:
+            setattr(mDst, prop, getattr(mSrc, prop))
+
+    bpy.context.scene.collection.objects.link(newObj)
+
+    return newObj
+
+def exportLodLevelWithModifiers(myself, filePtr, obj, wm, idx, applyModifiers):
+    print("Exporting lod " , lodKey(obj), "of object", obj.name)
+    if applyModifiers == False:
+        # Simply export if we don't want to apply modifiers
+        export_lod(filePtr, obj, wm, idx)
+    else:
+        # If we have modifiers, copy the object and apply them
+        bpy.ops.object.select_all(action='DESELECT')
+        #obj.select_set(True)
+        #res = bpy.ops.object.duplicate()
+        #if res != {'FINISHED'}:
+        #    myself.report({'ERROR'}, "Failed to apply modifiers")
+        #    return
+
+        #tmpObj = bpy.context.selected_objects[0]
+        tmpObj = duplicateObject(obj)
+        applyModifiersOnObject(tmpObj)
+        export_lod(filePtr, tmpObj, wm, idx)
+        bpy.ops.object.delete()
+
+def applyModifiersOnObject(tmpObj):
+    bpy.context.view_layer.objects.active = tmpObj
+    tmpObj.select_set(True)
+    for mod in tmpObj.modifiers:
+        print("--> Applying modifier " , mod.name, "on",tmpObj.name)
+        bpy.ops.object.modifier_apply(modifier=mod.name)
+
 # Export a couple of meshes to a P3D MLOD files    
-def exportMDL(myself, filePtr, selectedOnly):    
+def exportMDL(myself, filePtr, selectedOnly, applyModifiers, mergeSameLOD):
     if selectedOnly:
         objects = [obj
                     for obj in bpy.context.selected_objects
@@ -488,6 +579,12 @@ def exportMDL(myself, filePtr, selectedOnly):
     if len(objects) == 0:
         return False
     
+    exportObjectListAsMDL(myself, filePtr, applyModifiers, mergeSameLOD, objects)
+
+    return True
+
+def exportObjectListAsMDL(myself, filePtr, applyModifiers, mergeSameLOD, objects):
+
     objects = sorted(objects, key=lodKey)
 
     # Make sure the object is in OBJECT mode, otherwise some of the functions might fail
@@ -501,14 +598,61 @@ def exportMDL(myself, filePtr, selectedOnly):
     wm = bpy.context.window_manager
     total = len(objects) * 5
     wm.progress_begin(0, total)
-    
-    print("self = ", myself)
 
-    numLods = objects.__len__()
 
-    # For each object, export a LOD
-    for idx, obj in enumerate(objects):
-        export_lod(filePtr, obj, wm, idx)
-        
+    if mergeSameLOD == False:
+
+        #numLods = objects.__len__()
+
+        # For each object, export a LOD
+        for idx, obj in enumerate(objects):
+            exportLodLevelWithModifiers(myself, filePtr, obj, wm, idx, applyModifiers)
+
+
+    else:
+       
+
+        idx = 0
+        while  idx < len(objects):
+            obj = objects[idx]
+            realIndex = idx
+            print ("Considering object ", objects[idx].name)
+            if sameLod(objects, idx):
+                print ("There are objects to merge")
+                # Copy this object and merge all subsequent objects of the same LOD
+                newTmpObj = duplicateObject(obj)
+                mergedObjects = []
+                if applyModifiers:
+                    applyModifiersOnObject(newTmpObj)
+                
+                while sameLod(objects, idx):
+                    idx = idx + 1
+                    mergeObj = objects[idx]
+                    newObj = duplicateObject(mergeObj)
+                    if applyModifiers:
+                        applyModifiersOnObject(newObj)
+                    mergedObjects.append(newObj)
+                
+                # Now, select all objects and make newTmpObj active
+                bpy.ops.object.select_all(action='DESELECT')
+                for x in mergedObjects:
+                    x.select_set(True)
+
+                newTmpObj.select_set(True)
+                bpy.context.view_layer.objects.active = newTmpObj
+                ArmaTools.joinObjectToObject(bpy.context)      
+                export_lod(filePtr, newTmpObj, wm, realIndex)
+
+                # Make sure we only have this one selected and delete it
+                bpy.ops.object.select_all(action='DESELECT')
+                bpy.context.view_layer.objects.active = newTmpObj
+                newTmpObj.select_set(True)
+                bpy.ops.object.delete()
+            else:
+                exportLodLevelWithModifiers(
+                    myself, filePtr, obj, wm, idx, applyModifiers)
+                    
+            idx = idx + 1
+
     wm.progress_end()
         

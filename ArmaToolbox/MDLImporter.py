@@ -217,12 +217,13 @@ def loadLOD(context, filePtr, objectName, materialData, layerFlag, lodnr):
         pnt = [point[0],  point[2], point[1]]
         verts.append(pnt)
     
-    print("normals...")    
+    print("normals (",numNormals, ")...")    
     normals = []
     for i in range(0, numNormals):
         normal = struct.unpack("fff", filePtr.read(12))
         nrm = [normal[0], normal[1], normal[2]]
         normals.append(normal)
+        print ("Normal = ", normal)
     
 
     faceData = []
@@ -343,6 +344,9 @@ def loadLOD(context, filePtr, objectName, materialData, layerFlag, lodnr):
             elif tagName == "#UVSet#":
                 id = readULong(filePtr)
                 layerName = "UVSet " + str(id)
+                if id == 0:
+                    # Name first layer "UVMap" so that there isn't any fuckups with uv sets
+                    layerName = "UVMap"
                 #print("adding UV set " + layerName)
                 mymesh.uv_layers.new(name=layerName)
                 layer = mymesh.uv_layers[-1]

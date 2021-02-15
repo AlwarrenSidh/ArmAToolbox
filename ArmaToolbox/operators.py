@@ -1,13 +1,14 @@
 import bpy
 from lists import safeAddTime
 from . import properties
-from ArmaProxy import CopyProxy, CreateProxyPos
+from ArmaProxy import CopyProxy, CreateProxyPos, SelectProxy
 import bmesh
 import ArmaTools
 import RVMatTools
 from math import *
 from mathutils import *
 from ArmaToolbox import getLodsToFix
+#from RtmTools import exportModelCfg
 
 class ATBX_OT_add_frame_range(bpy.types.Operator):
     bl_idname = "armatoolbox.add_frame_range"
@@ -348,7 +349,26 @@ class ATBX_OT_delete_proxy(bpy.types.Operator):
             
             
         return {"FINISHED"}
+
+class ATBX_OT_select_proxy(bpy.types.Operator):
+    bl_idname = "armatoolbox.select_proxy"
+    bl_label = ""
+    bl_description = "selects given proxy"  
     
+    proxyName : bpy.props.StringProperty()
+    
+    @classmethod
+    def poll(self, context):
+        if context.active_object.mode == 'EDIT':
+            return True
+        else:
+            return False
+    
+    def execute(self, context):
+        sObj = context.active_object
+        SelectProxy(sObj, self.proxyName)
+        return {"FINISHED"}
+
 ###
 ##  Weight Tools
 #
@@ -683,6 +703,89 @@ class ATBX_OT_fix_shadows(bpy.types.Operator):
         row = layout.row()
         row.label (text  = "Click 'OK' to fix")
 
+""" class ATBX_OT_export_bone(bpy.types.Operator):
+    bl_idname = "armatoolbox.exportbone"
+    bl_label = ""
+    bl_description = "Export a bone as model.cfg animation"
+    
+    @classmethod
+    def poll(cls, context):
+        obj = context.active_object
+        
+        return (obj
+            and obj.select_get() == True
+            and obj.armaObjProps.isArmaObject == True
+            and obj.type == "ARMATURE"
+            )  
+        
+    def execute(self, context):
+        obj = context.active_object
+        arma = obj.armaObjProps
+
+        exportModelCfg(context, obj, arma.exportBone, arma.selectionName, arma.animSource, arma.prefixString, arma.outputFile)
+               
+        return {"FINISHED"}  """
+
+
+class ATBX_OT_section_optimize(bpy.types.Operator):
+    bl_idname = "armatoolbox.section_optimize"
+    bl_label = "Optimize section count."
+    bl_description = "Available in Edit mode. Select transparent faces and click this button to minimize section count."
+
+    @classmethod
+    def poll(cls, context):
+        return context.mode == 'EDIT_MESH'  
+
+    def execute(self, context):
+        ArmaTools.optimizeSectionCount(context)
+
+        return {"FINISHED"}
+
+class ATBX_OT_vgroup_redefine(bpy.types.Operator):
+    bl_idname = "armatoolbox.vgroup_redefine"
+    bl_label = "Redefine Vertex Group"
+    bl_description = "Delete the vertex group and recreate it with the selected vertices only"
+
+    @classmethod
+    def poll(cls, context):
+        return context.mode == 'EDIT_MESH'
+
+    def execute(self, context):
+        obj = context.active_object
+        try:
+            vg_name = obj.vertex_groups.active.name
+            bpy.ops.object.vertex_group_remove()
+            vgrp = bpy.context.active_object.vertex_groups.new(name=vg_name)
+            bpy.ops.object.vertex_group_assign()
+        except:
+            pass
+        return {"FINISHED"}
+
+class ATBX_OT_join(bpy.types.Operator):
+    bl_idname = "armatoolbox.join"
+    bl_label = "Join selected objects with active object"
+    bl_description = "Joins all selected objects with the active one, maintaining the proxies of all joined objects"
+
+    @classmethod
+    def poll(cls, context):
+        return context.mode == "OBJECT"
+
+    def execute(self, context):
+        ArmaTools.joinObjectToObject(context)
+        return {"FINISHED"}
+
+class ATBX_OT_selectBadUV(bpy.types.Operator):
+    bl_idname = "armatoolbox.select_bad_uv"
+    bl_label = "Select distorted UV islands"
+    bl_description = "select all islands with UV distortion."
+
+    def execute(self, context):
+        guiProps = context.window_manager.armaGUIProps
+        naxAngle = radians(guiProps.uvIslandAngle)
+
+        ArmaTools.selectBadUV(self, context, naxAngle)
+        
+        return {'FINISHED'}
 
 op_classes = (
     ATBX_OT_add_frame_range,
@@ -715,6 +818,12 @@ op_classes = (
     ATBX_OT_set_mass,
     ATBX_OT_distribute_mass,
     ATBX_OT_fix_shadows,
+    #ATBX_OT_export_bone,
+    ATBX_OT_section_optimize,
+    ATBX_OT_vgroup_redefine,
+    ATBX_OT_select_proxy,
+    ATBX_OT_join,
+    ATBX_OT_selectBadUV
 )
 
 
