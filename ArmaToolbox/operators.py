@@ -787,6 +787,55 @@ class ATBX_OT_selectBadUV(bpy.types.Operator):
         
         return {'FINISHED'}
 
+class ATBX_OT_set_transparency(bpy.types.Operator):
+    bl_idname = "armatoolbox.set_transparency"
+    bl_label = "Mark as Transparent"
+    bl_description = "Mark selected faces as transparent for sorting purposes"
+
+    @classmethod
+    def poll(self, context):
+        if context.active_object != None and context.active_object.mode == 'EDIT':
+            return True
+        else:
+            return False
+
+    def execute(self, context):
+        ArmaTools.markTransparency(self, context, 1)
+        return {'FINISHED'}
+
+class ATBX_OT_unset_transparency(bpy.types.Operator):
+    bl_idname = "armatoolbox.unset_transparency"
+    bl_label = "Mark as non-transparent"
+    bl_description = "Mark selected faces as non-transparent for sorting purposes"
+
+    @classmethod
+    def poll(self, context):
+        if context.active_object != None and context.active_object.mode == 'EDIT':
+            return True
+        else:
+            return False
+
+    def execute(self, context):
+        ArmaTools.markTransparency(self, context, 0)
+        return {'FINISHED'}
+
+
+class ATBX_OT_select_transparent(bpy.types.Operator):
+    bl_idname = "armatoolbox.select_transparent"
+    bl_label = "Select transparent faces"
+    bl_description = "Select all faces marked as transparent"
+
+    @classmethod
+    def poll(self, context):
+        if context.active_object != None and context.active_object.mode == 'EDIT':
+            return True
+        else:
+            return False
+
+    def execute(self, context):
+        ArmaTools.selectTransparency(self, context)
+        return {'FINISHED'}
+
 op_classes = (
     ATBX_OT_add_frame_range,
     ATBX_OT_add_key_frame,
@@ -823,7 +872,10 @@ op_classes = (
     ATBX_OT_vgroup_redefine,
     ATBX_OT_select_proxy,
     ATBX_OT_join,
-    ATBX_OT_selectBadUV
+    ATBX_OT_selectBadUV,
+    ATBX_OT_set_transparency,
+    ATBX_OT_unset_transparency,
+    ATBX_OT_select_transparent
 )
 
 

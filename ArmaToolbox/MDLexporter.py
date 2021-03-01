@@ -399,6 +399,7 @@ def checkMass(obj, lod, mesh):
 
 
 def export_lod(filePtr, obj, wm, idx):
+    ArmaTools.optimize_export_lod(obj)
     # Header
     writeSignature(filePtr, 'P3DM')
     writeULong(filePtr, 0x1C)

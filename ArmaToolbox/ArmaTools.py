@@ -611,7 +611,9 @@ def messageReport(myop, message):
 
 def optimizeSectionCount(context):
     obj = context.active_object
-    arma = obj.armaObjProps
+    optimizeSectionCountObj(obj)
+
+def optimizeSectionCountObj(obj):
     tempGrpName = "-TOOLBOX_OPTIMIZE_TEMP"
 
     # Set to FACE select mode
@@ -691,3 +693,78 @@ def selectBadUV(self, context, maxAngleDiff = 0.001):
                 face.loops[i][uv_layers].select = True
                 face.loops[i2][uv_layers].select = True
                 face.loops[i3][uv_layers].select = True
+
+def markTransparency(self, context, transparent):
+    # FIXME: Needed?
+    bpy.ops.object.mode_set(mode="OBJECT")
+    bpy.ops.object.mode_set(mode="EDIT")
+
+    bm = bmesh.from_edit_mesh(context.active_object.data)
+    if "FHQTransparency" not in bm.faces.layers.int.keys():
+        trlayer = bm.faces.layers.int.new('FHQTransparency')
+    else:
+        trlayer = bm.faces.layers.int["FHQTransparency"]
+
+    for face in bm.faces:
+        if face.select:
+            face[trlayer] = transparent
+
+
+def selectTransparency(self, context):
+    selectTransparencyObj(context.active_object)
+
+
+def selectTransparencyObj(obj):
+    bm = bmesh.from_edit_mesh(obj.data)
+    if "FHQTransparency" not in bm.faces.layers.int.keys():
+        trlayer = bm.faces.layers.int.new('FHQTransparency')
+    else:
+        trlayer = bm.faces.layers.int["FHQTransparency"]
+
+    for face in bm.faces:
+        if face[trlayer] == 1:
+            face.select = True
+        else:
+            face.select = False
+
+    bmesh.update_edit_mesh(obj.data)
+
+def optimize_export_lod(obj):
+    # ? bpy.context.scene.objects.active = obj
+    obj.select_set(True)
+
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.select_all(action='DESELECT')
+
+    selectTransparencyObj(obj)
+    optimizeSectionCountObj(obj)
+    bpy.ops.object.mode_set(mode='OBJECT')
+
+def PostProcessLOD(obj):
+    me = obj.data
+    bm = bmesh.new()
+    bm.from_mesh(me)
+
+    if "FHQTransparency" not in bm.faces.layers.int.keys():
+        trlayer = bm.faces.layers.int.new('FHQTransparency')
+    else:
+        trlayer = bm.faces.layers.int["FHQTransparency"]
+
+    for face in bm.faces:
+        matIndex = face.material_index
+        if matIndex != -1:
+            material = obj.material_slots[matIndex].material
+            if material != None:
+                ap = material.armaMatProps
+                if ap.texType == 'Texture':
+                    if ap.texture.find("_ca.") != -1:
+                        face[trlayer] = 1
+                elif ap.texType == 'Color':
+                    if ap.colorType == 'CA':
+                        face[trlayer] = 1
+                elif ap.texType == 'Custom':
+                    if ap.colorString.find("#(argb") != -1:
+                        face[trlayer] = 1
+                        
+    bm.to_mesh(me)
+    bm.free()

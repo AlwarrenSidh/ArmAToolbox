@@ -687,6 +687,29 @@ class ATBX_PT_uv_tools(bpy.types.Panel):
                      text="Select Degenerate Islands")
 
 
+class ATBX_PT_transparency_panel(bpy.types.Panel):
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_label = "Transparency"
+    bl_category = "Arma 3 Tools"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        obj = context.active_object
+        guiProp = context.window_manager.armaGUIProps
+        layout = self.layout
+        row = layout.column()
+        
+
+        layout.operator("armatoolbox.set_transparency",
+                        text="Set Transparent")
+        layout.operator("armatoolbox.unset_transparency",
+                        text="Unset Transparent")
+        layout.operator("armatoolbox.select_transparent",
+                        text="Select Transparent Faces")
+        
+        
+
 panel_classes = (
     ATBX_PT_properties_panel,
     ATBX_PT_proxy_panel,
@@ -699,7 +722,8 @@ panel_classes = (
     ATBX_PT_hf_properties_panel,
     ATBX_PT_selection_maker,
     ATBX_PT_mass_tools_panel,
-    ATBX_PT_uv_tools
+    ATBX_PT_uv_tools,
+    ATBX_PT_transparency_panel
 #    ATBX_PT_model_cfg_panel
 )
 

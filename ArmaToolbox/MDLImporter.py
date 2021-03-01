@@ -201,7 +201,7 @@ def loadLOD(context, filePtr, objectName, materialData, layerFlag, lodnr):
         print("Unknown major version {0}".format(major))
         return -1
     if minor != 0x100:
-        print("Unknown minor version {0}".fomrat(minor))
+        print("Unknown minor version {0}".format(minor))
         return -1
     
     numPoints   = readULong(filePtr)
@@ -223,7 +223,7 @@ def loadLOD(context, filePtr, objectName, materialData, layerFlag, lodnr):
         normal = struct.unpack("fff", filePtr.read(12))
         nrm = [normal[0], normal[1], normal[2]]
         normals.append(normal)
-        print ("Normal = ", normal)
+        #print ("Normal = ", normal)
     
 
     faceData = []
@@ -545,6 +545,9 @@ def loadLOD(context, filePtr, objectName, materialData, layerFlag, lodnr):
     
     if obj.armaObjProps.lod == '1.000e+13' or obj.armaObjProps.lod == '4.000e+13':
         ArmaTools.attemptFixMassLod (obj)
+
+    if obj.armaObjProps.lod == '-1.0':
+        ArmaTools.PostProcessLOD(obj)
 
     print("done reading lod")
     return 0
