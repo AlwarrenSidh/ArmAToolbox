@@ -134,7 +134,7 @@ def vgroupExtra(self, context):
             row = layout.row()
             row.label(text = "ARMA group weight {:6.2f}".format(getMassForSelection(obj, obj.vertex_groups[actGrp].name)))
 
-    if arma.isArmaObject and (arma.lod == '1.000e+13' or arma.lod == '4.000e+13' or arma.lod == '7.000e+15'):
+    if arma.isArmaObject and (arma.lod == '1.000e+13' or arma.lod == '4.000e+13' or arma.lod == '7.000e+15' or arma.lod == '6.000e+15'):
         row = layout.row()
         row.operator("armatoolbox.create_components")
             # TODO:
