@@ -643,6 +643,9 @@ def exportObjectListAsMDL(myself, filePtr, applyModifiers, mergeSameLOD, objects
                 newTmpObj.select_set(True)
                 bpy.context.view_layer.objects.active = newTmpObj
                 ArmaTools.joinObjectToObject(bpy.context)      
+                arma = newTmpObj.armaObjProps
+                if arma.isArmaObject and (arma.lod == '1.000e+13' or arma.lod == '4.000e+13' or arma.lod == '7.000e+15'):
+                    ArmaTools.createComponents(bpy.context)
                 export_lod(filePtr, newTmpObj, wm, realIndex)
 
                 # Make sure we only have this one selected and delete it
