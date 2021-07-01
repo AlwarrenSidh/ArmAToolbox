@@ -589,7 +589,8 @@ def exportObjectListAsMDL(myself, filePtr, applyModifiers, mergeSameLOD, objects
     objects = sorted(objects, key=lodKey)
 
     # Make sure the object is in OBJECT mode, otherwise some of the functions might fail
-    bpy.ops.object.mode_set(mode='OBJECT')
+    if (bpy.context.object.mode!='OBJECT'):
+        bpy.ops.object.mode_set(mode='OBJECT')
     
     # Write file header
     writeSignature(filePtr, 'MLOD')
