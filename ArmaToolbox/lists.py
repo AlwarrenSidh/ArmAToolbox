@@ -12,7 +12,14 @@ class ATBX_UL_named_prop_list(bpy.types.UIList):
     #   index is index of the current item in the collection.
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         prop = item
-        layout.label(text = prop.name)
+        #layout.label(text = prop.name)
+
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            layout.prop(item, property="name", text="", emboss=False)
+        elif self.layout_type == 'GRID':
+            layout.alignment = 'CENTER'
+            layout.label(text=prop.name)
+
 
 class ATBX_UL_key_frame_list(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
@@ -113,12 +120,70 @@ class ATBX_UL_convert_list(bpy.types.Operator):
 
         return {"FINISHED"}
 
+class ATBX_UL_export_config_list(bpy.types.UIList):
+    # The draw_item function is called for each item of the collection that is visible in the list.
+    #   data is the RNA object containing the collection,
+    #   item is the current drawn item of the collection,
+    #   icon is the "computed" icon for the item (as an integer, because some objects like materials or textures
+    #   have custom icons ID, which are not available as enum items).
+    #   active_data is the RNA object containing the active property for the collection (i.e. integer pointing to the
+    #   active item of the collection).
+    #   active_propname is the name of the active property (use 'getattr(active_data, active_propname)').
+    #   index is index of the current item in the collection.
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        #layout.label(text=item.name)
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            layout.prop(item, property="name", text="", emboss=False)
+        elif self.layout_type == 'GRID':
+            layout.alignment = 'CENTER'
+            layout.label(text=item.name)
+
+
+class ATBX_UL_export_config_object_list(bpy.types.UIList):
+    # The draw_item function is called for each item of the collection that is visible in the list.
+    #   data is the RNA object containing the collection,
+    #   item is the current drawn item of the collection,
+    #   icon is the "computed" icon for the item (as an integer, because some objects like materials or textures
+    #   have custom icons ID, which are not available as enum items).
+    #   active_data is the RNA object containing the active property for the collection (i.e. integer pointing to the
+    #   active item of the collection).
+    #   active_propname is the name of the active property (use 'getattr(active_data, active_propname)').
+    #   index is index of the current item in the collection.
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):        
+        layout.label(text=item.name)
+
+class ATBX_UL_named_selections_list(bpy.types.UIList):
+    # The draw_item function is called for each item of the collection that is visible in the list.
+    #   data is the RNA object containing the collection,
+    #   item is the current drawn item of the collection,
+    #   icon is the "computed" icon for the item (as an integer, because some objects like materials or textures
+    #   have custom icons ID, which are not available as enum items).
+    #   active_data is the RNA object containing the active property for the collection (i.e. integer pointing to the
+    #   active item of the collection).
+    #   active_propname is the name of the active property (use 'getattr(active_data, active_propname)').
+    #   index is index of the current item in the collection.
+
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            layout.prop(item, property="name", text="", emboss=False, icon="GROUP_VERTEX")
+        elif self.layout_type == 'GRID':
+            layout.alignment = 'CENTER'
+            layout.label(text="", icon="GROUP_VERTEX")
+
+    #def invoke(self, context, event):
+    #    print ("Invoke called")
+
+
 list_classes = (
     ATBX_UL_named_prop_list,
     ATBX_UL_key_frame_list,
     ATBX_UL_renameable_prop_list,
     ATBX_UL_update_list,
-    ATBX_UL_convert_list
+    ATBX_UL_convert_list,
+    ATBX_UL_export_config_list,
+    ATBX_UL_export_config_object_list,
+    ATBX_UL_named_selections_list,
 )
 
 def safeAddTime(frame, prop):

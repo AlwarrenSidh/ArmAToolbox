@@ -74,8 +74,44 @@ def correctedResolution(r):
     res = int(r)
    
     if (r < 1000):
-        return r #res
+        return r,r #res
     
+
+    ATBX_lodPresetsNeedingResolution = [
+    '1.200e+03',  # 'View Cargo', 'View Cargo'),
+    '1.000e+04',  # 'Stencil Shadow', 'Stencil Shadow'),
+    '1.001e+04',  # 'Stencil Shadow 2', 'Stencil Shadow 2'),
+    '1.100e+04',  # 'Shadow Volume', 'Shadow Volume'),
+    '1.101e+04',  # 'Shadow Volume 2', 'Shadow Volume 2'),
+    '8.000e+15',  # 'View Cargo Geometry', 'View Cargo Geometry'),
+    '1.800e+16',  # 'Shadow Volume - View Cargo', 'Cargo View shadow volume'),
+    '2.000e+04',  # 'Edit', 'Edit'),
+    ]
+
+    exp = format(r, ".3e")
+
+    #print("-------------- res = ", exp, "exponent=", exp[-2:])
+
+    for lod in ATBX_lodPresetsNeedingResolution:
+        offset = float(exp) - float(lod)
+        #print("offset = ", offset, "resolution (corrected) = ", exp, "(", float(exp), ")")
+        if offset >= 0 and offset <= 100:
+            return float(lod), offset
+
+    
+    # Look at the effing exponent to decide what to do with this
+    expnt = exp[-2:]
+    
+    if expnt == "15":
+        offsetStr = exp[2:4]
+        return float(exp[0]+'e15'), float(offsetStr)
+
+    if expnt == "16":
+        offsetStr = exp[3:5]
+        return float(exp[0]+"." + exp[2] + 'e16'), float(offsetStr)
+
+    return float(exp),0
+
     values ={
         10000000000000 : 'G',
         3000000000000000 : 'RD',
@@ -333,7 +369,7 @@ def loadLOD(context, filePtr, objectName, materialData, layerFlag, lodnr):
                     n1 = readULong(filePtr)
                     n2 = readULong(filePtr)
                     sharpEdges.append([n1, n2])
-                #print ("sharp edges", sharpEdges)
+                print ("sharp edges", sharpEdges)
             elif tagName == "#Property#":
                 # Read named property
                 propName  = struct.unpack("64s", filePtr.read(64))[0].decode("utf-8")
@@ -404,7 +440,9 @@ def loadLOD(context, filePtr, objectName, materialData, layerFlag, lodnr):
                 for i in range(0, numFaces):
                     b = readByte(filePtr)
                     w = decodeWeight(b)
-                #    print("b = ",b,"w = ", w)
+                    if w > 0.0: 
+                        pass
+                        #print("selection ", tagName, "b = ",b,"w = ", w)
                 #    if w== 1.0:
                 #        pPoly = obj.data.polygons[i]
                 #        for n in range(0,len(pPoly.vertices)):
@@ -413,7 +451,8 @@ def loadLOD(context, filePtr, objectName, materialData, layerFlag, lodnr):
                 #filePtr.seek(numFaces, 1)
     
     # Done with the taggs, only the resolution is left to read
-    resolution = readFloat(filePtr)  
+    resolution = readFloat(filePtr)
+
     #meshName = meshName + "." + resolutionName(resolution)      
     meshName = resolutionName(resolution)
     mymesh.name = meshName
@@ -501,9 +540,10 @@ def loadLOD(context, filePtr, objectName, materialData, layerFlag, lodnr):
     #    bpy.ops.object.move_to_layer(layers=objectLayers)
 
     hasSet = False
-    oldres = resolution
-    resolution = correctedResolution(resolution)
-    offset = oldres - resolution
+    #oldres = resolution
+    resolution,offset = correctedResolution(resolution)
+    #offset = oldres - resolution
+    #print("resolution = ",resolution, " oldres = ", oldres, "offset = ", offset)
     obj.armaObjProps.isArmaObject = True
     if resolution <= 1000:
         obj.armaObjProps.lodDistance = resolution
@@ -522,7 +562,7 @@ def loadLOD(context, filePtr, objectName, materialData, layerFlag, lodnr):
              
     if hasSet == False:
         print("Error: unknown lod %f" % (resolution))
-        print("resolution %d" % (correctedResolution(resolution)))
+        #print("resolution %d" % (correctedResolution(resolution)))
 
     print("weight")
     if weight is not None:
@@ -541,6 +581,15 @@ def loadLOD(context, filePtr, objectName, materialData, layerFlag, lodnr):
         
         bm.to_mesh(obj.data)
     
+    print("face flags")
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bm.verts.ensure_lookup_table()
+    fflayer = ArmaTools.getBMeshFaceFlags(bm)
+    for face in bm.faces:
+        face[fflayer] = faceData[face.index][3]
+    bm.to_mesh(obj.data)
+
     obj.select_set(False)
     
     if obj.armaObjProps.lod == '1.000e+13' or obj.armaObjProps.lod == '4.000e+13':
@@ -550,6 +599,7 @@ def loadLOD(context, filePtr, objectName, materialData, layerFlag, lodnr):
         ArmaTools.PostProcessLOD(obj)
 
     print("done reading lod")
+    #bpy.ops.outliner.collection_disable()
     return 0
 
 # Main Import Routine
@@ -576,8 +626,11 @@ def importMDL(context, fileName, layerFlag):
     
     print ("Signature = {0}, version={1}, numLods = {2}".format(sig, version, numLods))
     
-    if version != 257 or sig != b'MLOD':
+    if version != 257:
         return -1
+
+    if sig != b'MLOD':
+        return -3
     
     # Start loading lods
     for i in range(0,numLods):

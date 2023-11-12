@@ -9,6 +9,31 @@ from bpy_extras import object_utils
 from math import *
 from mathutils import *
 
+def GetProxyGroup(obj, name):
+    try:
+        group = obj.vertex_groups[name]
+        return group
+    except KeyError:
+        raise RuntimeError ("*** WARNING: Object " + obj.name + " has stale proxy. Run 'Sync to Model'")
+
+
+    return None
+
+def CreateProxyPosRot(obj, pos, rot, path, index, enclose = None):
+    
+    up = Vector((0,0,1))
+    left = Vector((0,0.5,0))
+
+    if rot != None:
+        up.rotate(rot)
+        left.rotate(rot)
+
+    v1 = pos
+    v2 = pos + up
+    v3 = pos + left
+
+    CreateProxy (obj, v1, v2, v3, path, index, enclose)
+
 def CreateProxyPos(obj, pos, path, index, enclose = None):
     v1 = pos
     v2 = pos + Vector((0,0,1))
@@ -30,22 +55,46 @@ def CreateProxy(obj, v1,v2,v3, path, index, enclose=None):
         bm.to_mesh(mesh)
         bm.free()
 
+        # Create the appropriate proxy group
         vgrp = obj.vertex_groups.new(name = "@@armaproxy")
         vgrp.add([i+0],1,'ADD')
         vgrp.add([i+1],1,'ADD')
         vgrp.add([i+2],1,'ADD')
        
         if enclose != None:
-            fnd = obj.vertex_groups.find(enclose)
-            if (fnd == -1):
-                vgrp2 = obj.vertex_groups.new(name = enclose)
-            else:
-                vgrp2 = obj.vertex_groups[fnd]
-                
-            vgrp2.add([i+0],1,'ADD')
-            vgrp2.add([i+1],1,'ADD')
-            vgrp2.add([i+2],1,'ADD')
-            
+            if type(enclose) == type(""): # Single String
+                fnd = obj.vertex_groups.find(enclose)
+                if (fnd == -1):
+                    vgrp2 = obj.vertex_groups.new(name = enclose)
+                else:
+                    vgrp2 = obj.vertex_groups[fnd]
+                    
+                vgrp2.add([i+0],1,'ADD')
+                vgrp2.add([i+1],1,'ADD')
+                vgrp2.add([i+2],1,'ADD')
+            elif type(enclose) == type ([]): # List
+                for st in enclose:
+                    fnd = obj.vertex_groups.find(st)
+                    if (fnd == -1):
+                        vgrp2 = obj.vertex_groups.new(name=st)
+                    else:
+                        vgrp2 = obj.vertex_groups[fnd]
+
+                    vgrp2.add([i+0], 1, 'ADD')
+                    vgrp2.add([i+1], 1, 'ADD')
+                    vgrp2.add([i+2], 1, 'ADD')
+
+        # Make sure to add it to -all-proxies
+        fnd = obj.vertex_groups.find("-all-proxies")
+        if (fnd == -1):
+            vgrp2 = obj.vertex_groups.new(name="-all-proxies")
+        else:
+            vgrp2 = obj.vertex_groups[fnd]
+
+        vgrp2.add([i+0], 1, 'ADD')
+        vgrp2.add([i+1], 1, 'ADD')
+        vgrp2.add([i+2], 1, 'ADD')
+
         p = obj.armaObjProps.proxyArray.add()
         p.name = vgrp.name
         p.index = index
@@ -112,11 +161,13 @@ def SelectProxy(obj, proxyName):
 # Rename all proxy groups to a naming scheme @@armaproxy.xxxx starting at newBase
 # Used primarily for joining two objects with proxies
 def RebaseProxies(obj, newBase):
+    #print("Rebasing proxies of ", obj.name_full)
     newIdx = newBase
     proxies = []
     for prox in obj.armaObjProps.proxyArray:
         oldName = prox.name
-        group = obj.vertex_groups[oldName]
+        group = GetProxyGroup(obj, oldName)
+        #obj.vertex_groups[oldName]
         proxies.append(group)
         group.name = "@@armaproxy_%03d" % newIdx
         newIdx = newIdx + 1
@@ -138,3 +189,39 @@ def GetMaxProxy(obj):
         if highIndex < index:
             highIndex = index
     return highIndex
+
+def DeleteProxy(obj, proxyName):
+    sObj = obj
+    mesh = sObj.data
+
+    idxList = []
+
+    grp = sObj.vertex_groups[proxyName]
+    for v in mesh.vertices:
+        for g in v.groups:
+            if g.group == grp.index:
+                if g.weight > 0:
+                    idxList.append(v.index)
+
+    if len(idxList) > 0:
+        bm = bmesh.new()
+        bm.from_mesh(mesh)
+        if hasattr(bm.verts, "ensure_lookup_table"):
+            bm.verts.ensure_lookup_table()
+
+        vList = []
+        for i in idxList:
+            vList.append(bm.verts[i])
+
+        for v in vList:
+            bm.verts.remove(v)
+
+        bm.to_mesh(mesh)
+        bm.free()
+        mesh.update()
+
+    sObj.vertex_groups.remove(grp)
+    prp = sObj.armaObjProps.proxyArray
+    for i, pa in enumerate(prp):
+        if pa.name == proxyName:
+            prp.remove(i)

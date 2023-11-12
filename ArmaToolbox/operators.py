@@ -1,14 +1,18 @@
 import bpy
 from lists import safeAddTime
 from . import properties
-from ArmaProxy import CopyProxy, CreateProxyPos, SelectProxy
+from ArmaProxy import CopyProxy, CreateProxyPosRot, SelectProxy, DeleteProxy
 import bmesh
 import ArmaTools
 import RVMatTools
 from math import *
 from mathutils import *
 from ArmaToolbox import getLodsToFix
+from BatchMDLExport import ATBX_OT_p3d_batch_export
+import os.path as Path
 #from RtmTools import exportModelCfg
+from NamedSelections import *
+import re
 
 class ATBX_OT_add_frame_range(bpy.types.Operator):
     bl_idname = "armatoolbox.add_frame_range"
@@ -123,7 +127,18 @@ class ATBX_OT_rem_prop(bpy.types.Operator):
         if arma.namedPropIndex != -1:
             arma.namedProps.remove(arma.namedPropIndex)
         return {"FINISHED"}
-    
+
+class ATBX_OT_clear_props(bpy.types.Operator):
+    bl_idname = "armatoolbox.clear_props"
+    bl_label = ""
+    bl_description = "Remove all named properties"
+
+    def execute(self, context):
+        obj = context.active_object
+        arma = obj.armaObjProps
+        arma.namedProps.clear()
+        return {"FINISHED"}
+
 ###
 ##   Enable Operator
 #
@@ -417,6 +432,14 @@ class ATBX_OT_create_components(bpy.types.Operator):
         ArmaTools.createComponents(context)
         return {'FINISHED'}
 
+class ATBX_OT_renumber_components(bpy.types.Operator):
+    bl_idname = "armatoolbox.renumber_components"
+    bl_label = "Renumber existing components"
+
+    def execute(self, context):
+        ArmaTools.RenumberComponents(context.active_object)
+        return {'FINISHED'}
+
 class ATBX_OT_bulk_reparent(bpy.types.Operator):
     bl_idname = "armatoolbox.bulk_reparent"
     bl_label = "Bulk Re-parent Arma material paths"
@@ -485,7 +508,7 @@ class ATBX_OT_material_relocator(bpy.types.Operator):
         guiProps = context.window_manager.armaGUIProps
 
         outputPath = guiProps.matOutputFolder
-        if len(outputPath) is 0:
+        if len(outputPath) == 0:
             self.report({'ERROR_INVALID_INPUT'}, "Output folder name missing")
         
         prefixPath = guiProps.matPrefixFolder
@@ -550,9 +573,9 @@ class ATBX_OT_join_as_proxy(bpy.types.Operator):
                 if enclose == None:
                     e = None
                 else:
-                    e = enclose + str(index)
+                    e = enclose
                 pos = sel.location - obj.location 
-                CreateProxyPos(obj, pos, path, index, e)
+                CreateProxyPosRot(obj, pos, sel.rotation_euler, path, index, e)
                 index = index + 1
         
         if doDel == True:
@@ -800,7 +823,25 @@ class ATBX_OT_set_transparency(bpy.types.Operator):
             return False
 
     def execute(self, context):
-        ArmaTools.markTransparency(self, context, 1)
+        guiProps = context.window_manager.armaGUIProps
+        ArmaTools.markTransparency(self, context, 1+guiProps.trlevel_level)
+        return {'FINISHED'}
+
+
+class ATBX_OT_set_nontransparency(bpy.types.Operator):
+    bl_idname = "armatoolbox.set_nontransparency"
+    bl_label = "Mark as Opposite to Transparent"
+    bl_description = "Mark selected faces as opposite to transparent for sorting purposes"
+
+    @classmethod
+    def poll(self, context):
+        if context.active_object != None and context.active_object.mode == 'EDIT':
+            return True
+        else:
+            return False
+
+    def execute(self, context):
+        ArmaTools.markTransparency(self, context, -1)
         return {'FINISHED'}
 
 class ATBX_OT_unset_transparency(bpy.types.Operator):
@@ -833,8 +874,430 @@ class ATBX_OT_select_transparent(bpy.types.Operator):
             return False
 
     def execute(self, context):
-        ArmaTools.selectTransparency(self, context)
+        guiProps = context.window_manager.armaGUIProps
+        ArmaTools.selectTransparency(self, context, 1+guiProps.trlevel_level)
         return {'FINISHED'}
+
+
+class ATBX_OT_add_config(bpy.types.Operator):
+    bl_idname = "armatoolbox.add_config"
+    bl_label = ""
+    bl_description = "Add an export config"
+
+    def execute(self, context):
+        prp = context.scene.armaExportConfigs.exportConfigs
+        item = prp.add()
+        item.name = "New Export Config"
+        item.fileName = ".p3d"
+        return {"FINISHED"}
+
+
+class ATBX_OT_rem_config(bpy.types.Operator):
+    bl_idname = "armatoolbox.rem_config"
+    bl_label = ""
+    bl_description = "Remove an export config"
+
+    def execute(self, context):
+        prp = context.scene.armaExportConfigs.exportConfigs
+        active = context.window_manager.armaActiveExportConfig
+        if active != -1:
+            prp.remove(active)
+        return {"FINISHED"}
+
+
+class ATBX_OT_add_obj_config(bpy.types.Operator):
+    bl_idname = "armatoolbox.add_obj_config"
+    bl_label = ""
+    bl_description = "Add an export config to an object"
+
+    config_name : bpy.props.StringProperty(name="config_name")
+
+    def execute(self, context):
+        obj = context.active_object
+        prp = obj.armaObjProps.exportConfigs
+        item = prp.add()
+        item.name = self.config_name
+        return {"FINISHED"}
+
+
+class ATBX_OT_rem_obj_config(bpy.types.Operator):
+    bl_idname = "armatoolbox.rem_obj_config"
+    bl_label = ""
+    bl_description = "Remove an export config from an object"
+
+    config_name: bpy.props.StringProperty(name="config_name")
+
+    def execute(self, context):
+        obj = context.active_object
+        prp = obj.armaObjProps.exportConfigs
+        active = prp.keys().index(self.config_name)
+        if active != -1:
+            prp.remove(active)
+        return {"FINISHED"}
+
+
+class ATBX_OT_add_guiprop_config(bpy.types.Operator):
+    bl_idname = "armatoolbox.add_guiprop_config"
+    bl_label = ""
+    bl_description = "Add an export config to a gui list"
+
+    config_name: bpy.props.StringProperty(name="config_name")
+
+    def execute(self, context):
+        obj = context.active_object
+        prp = context.window_manager.armaGUIProps.bex_exportConfigs
+        item = prp.add()
+        item.name = self.config_name
+        return {"FINISHED"}
+
+
+class ATBX_OT_rem_guiprop_config(bpy.types.Operator):
+    bl_idname = "armatoolbox.rem_guiprop_config"
+    bl_label = ""
+    bl_description = "Remove an export config from a gui list"
+
+    config_name: bpy.props.StringProperty(name="config_name")
+
+    def execute(self, context):
+        obj = context.active_object
+        prp = context.window_manager.armaGUIProps.bex_exportConfigs
+        active = prp.keys().index(self.config_name)
+        if active != -1:
+            prp.remove(active)
+        return {"FINISHED"}
+
+
+class ATBX_OT_all_obj_config(bpy.types.Operator):
+    bl_idname = "armatoolbox.all_obj_config"
+    bl_label = ""
+    bl_description = "Add all/Remove all configs"
+
+    add_all : bpy.props.BoolProperty(name="add_all")
+
+    def execute(self, context):
+        obj = context.active_object
+        prp = obj.armaObjProps.exportConfigs
+        prp.clear()
+        if add_all:
+            for item in context.scene.armaExportConfigs.exportConfigs.values():
+                prp.add(item.name)
+    
+
+class ATBX_OT_rep_vgroup_maker(bpy.types.Operator):
+    bl_idname = "armatoolbox.rep_vgroup_maker"
+    bl_label = "Make VGroup"
+    bl_description = "Make a repeating vgroup from the name pattern"
+
+    @classmethod
+    def poll(self, context):
+        if context.active_object != None and context.active_object.mode == 'EDIT':
+            return True
+        else:
+            return False
+
+    def execute(self, context):
+        obj = context.active_object
+        guiProps = context.window_manager.armaGUIProps
+
+        i = 1
+        if guiProps.vgr_vgroup_baseEnable:
+            i = guiProps.vgr_vgroup_base
+        # Find the name of the next free group given the pattern
+        while True:
+            group_name = guiProps.vgr_vgroup_name % i
+            if obj.vertex_groups.get(group_name) == None:
+                break
+            i = i + 1
+
+        # This vertex group is guaranteed not to exist
+        obj.vertex_groups.new(name=group_name)
+        bpy.ops.object.vertex_group_assign()
+        if guiProps.vgr_deselect_all == 'deselect':
+            bpy.ops.mesh.select_all(action="DESELECT")
+        elif guiProps.vgr_deselect_all == 'hide':
+            bpy.ops.mesh.hide()
+
+
+        return {'FINISHED'}
+
+
+class ATBX_OT_rep_vgroup_extender(bpy.types.Operator):
+    bl_idname = "armatoolbox.rep_vgroup_extender"
+    bl_label = "Extend VGroup"
+    bl_description = "Extend a repeating vgroup from the name pattern"
+
+    @classmethod
+    def poll(self, context):
+        if context.active_object != None and context.active_object.mode == 'EDIT':
+            return True
+        else:
+            return False
+
+    def execute(self, context):
+        obj = context.active_object
+        guiProps = context.window_manager.armaGUIProps
+
+        i = guiProps.vgr_vgroup_num             # Get the current index
+        guiProps.vgr_vgroup_num = i+1           # increment it
+        # check if the group exists.
+        group_name = guiProps.vgr_vgroup_name % i
+
+        group = obj.vertex_groups.get(group_name)
+        if group == None:
+            return {'FINISHED'}
+
+        bpy.ops.object.vertex_group_set_active(group=group_name)
+        bpy.ops.object.vertex_group_assign()
+        if guiProps.vgr_deselect_all == 'deselect':
+            bpy.ops.mesh.select_all(action="DESELECT")
+        elif guiProps.vgr_deselect_all == 'hide':
+            bpy.ops.mesh.hide()
+
+        return {'FINISHED'}
+
+class ATBX_OT_copy_proxy_to_objects(bpy.types.Operator):
+    bl_idname = "armatoolbox.copy_proxy_to_objects"
+    bl_label = "Copy Proxies"
+    bl_description = "Copy Proxies to a number of other objects."
+
+    proxyArray : bpy.props.CollectionProperty(type=properties.ArmaToolboxCopyHelper)
+    copySelections : bpy.props.BoolProperty(name="copySelections")
+
+    @classmethod
+    def poll(self, context):
+        objects = [obj
+                   for obj in bpy.context.selected_objects
+                   if obj.type == 'MESH' and obj.armaObjProps.isArmaObject
+                   ]
+        if context.mode == 'OBJECT' and len(objects)>=2:
+            return True
+        else:
+            return False
+
+    def invoke(self, context, event):
+        obj = context.active_object
+        
+        self.proxyArray.clear()
+
+        for idx,prox in enumerate(obj.armaObjProps.proxyArray):
+            name = Path.basename(prox.path)
+            p = self.proxyArray.add()
+            p.name = name
+            p.doCopy = True
+            p.index = idx
+
+        wm = context.window_manager
+        return wm.invoke_props_dialog(self)
+
+    def draw(self, context):
+        layout = self.layout
+
+        for s in self.proxyArray:
+            row = layout.row()
+            row.prop(s, "doCopy", text=s.name)
+
+        row = layout.row()
+        row.label(text="Options:")
+        row = layout.row()
+        row.prop(self, "copySelections", text = "Copy Proxy's Selections")
+        
+
+    def execute(self, context):
+        obj = context.active_object
+        objects = [obj
+                   for obj in bpy.context.selected_objects
+                   if obj.type == 'MESH' and obj.armaObjProps.isArmaObject
+                   ]
+
+        for single in objects:
+            if single != obj: # Don't touch yourself. It's a sin!
+                for proxy in self.proxyArray:
+                    if proxy.doCopy:
+                        proxyName = obj.armaObjProps.proxyArray[proxy.index].name
+                        vert = ArmaTools.GetFirstVertexOfGroup(obj, proxyName)
+                        if self.copySelections:
+                            groups = ArmaTools.GetVertexGroupsForVertex(obj, vert)
+                        else:
+                            groups = ["-all-proxies"]
+                        try:
+                            groups.remove(proxyName)
+                        except:
+                            pass
+                        
+                        CopyProxy(obj, single, proxyName, groups)
+
+        return {'FINISHED'}
+
+
+class ATBX_OT_delete_all_proxies(bpy.types.Operator):
+    bl_idname = "armatoolbox.delete_all_proxies"
+    bl_label = "Delete all Proxies"
+    bl_description = "Delete all proxies on this object"
+
+
+    def execute(self, context):
+        obj = context.active_object
+        while len(obj.armaObjProps.proxyArray) > 0:
+            proxy = obj.armaObjProps.proxyArray[0]
+            DeleteProxy(obj, proxy.name)
+
+        return {'FINISHED'}   
+
+
+class ATBX_OT_apply_config_batch(bpy.types.Operator):
+    bl_idname = "armatoolbox.apply_config_batch"
+    bl_label = "Perform Config batch task"
+    bl_description = "Perform the Config Batch task"
+
+    def execute(self, context):
+        guiProps = context.window_manager.armaGUIProps
+        objs = [obj 
+            for obj in context.view_layer.objects
+                if obj.type == 'MESH' and obj.armaObjProps.isArmaObject and ArmaTools.testBatchCondition(guiProps, context.scene.armaExportConfigs.exportConfigs, obj)
+        ]
+
+        configToAdd = guiProps.bex_config
+
+        for obj in objs:
+            prp = obj.armaObjProps.exportConfigs
+            item = prp.add()
+            item.name = configToAdd
+        
+        return {'FINISHED'}
+
+class ATBX_OT_add_named_selection(bpy.types.Operator):
+    bl_idname = "armatoolbox.add_named_selection"
+    bl_label = ""
+    bl_description = "Add a named selection"
+
+    def execute(self, context):
+        obj = context.active_object
+        NamSel_AddNew(obj, name="Named Selection")
+        return {'FINISHED'}
+
+class ATBX_OT_add_remove_selection(bpy.types.Operator):
+    bl_idname = "armatoolbox.sub_named_selection"
+    bl_label = ""
+    bl_description = "Delete named selection"
+
+    def execute(self, context):
+        obj = context.active_object
+        arma = obj.armaObjProps
+        if arma.namedSelectionIndex != -1:
+            name = arma.namedSelection[arma.namedSelectionIndex].name
+            NamSel_Remove(obj, name=name)
+            arma.namedSelection.remove(arma.namedSelectionIndex)
+        return {'FINISHED'}
+        
+class ATBX_OT_named_selection_move(bpy.types.Operator):
+    bl_idname = "armatoolbox.named_selection_move"
+    bl_label = ""
+    bl_description = "Move vertex group up or down"
+
+    direction: bpy.props.StringProperty(name = "direction", description = "Direction")
+
+    def execute(self, context):
+        obj = context.active_object
+        arma = obj.armaObjProps
+        index = arma.namedSelectionIndex
+        if self.direction == 'UP':
+            if index > 0:
+                arma.namedSelection.move(index, index-1)
+                arma.namedSelectionIndex = index - 1
+                arma.previousSelectionIndex = -1
+        elif self.direction == 'DOWN':
+            if index < arma.namedSelection.__len__()-1:
+                arma.namedSelection.move(index, index+1)
+                arma.namedSelectionIndex = index + 1
+                arma.previousSelectionIndex = -1
+
+        return {'FINISHED'}
+
+
+class ATBX_OT_set_zbias(bpy.types.Operator):
+    bl_idname = "armatoolbox.set_zbias"
+    bl_label = "Set ZBias"
+    bl_description = "Set the ZBias on selected faces"
+
+    @classmethod
+    def poll(self, context):
+        if context.active_object != None and context.active_object.mode == 'EDIT':
+            return True
+        else:
+            return False
+
+    def execute(self, context):
+        guiProps = context.window_manager.armaGUIProps
+        mask = 0x300
+        flags = 0
+        if guiProps.zbias_level == True:
+            flags = 0x300 # High ZBias is the only working one in Arma 3
+
+        ArmaTools.setFaceFlags(self, context, flags, mask)
+        return {'FINISHED'}
+
+
+class ATBX_OT_select_zbiased(bpy.types.Operator):
+    bl_idname = "armatoolbox.select_zbiased"
+    bl_label = "Select all faces with ZBias"
+    bl_description = "Select all faces marked as Z Biased"
+
+    @classmethod
+    def poll(self, context):
+        if context.active_object != None and context.active_object.mode == 'EDIT':
+            return True
+        else:
+            return False
+
+    def execute(self, context):
+        guiProps = context.window_manager.armaGUIProps
+        ArmaTools.selectFaceFlags(self, context, 0x300, 0x300)
+        return {'FINISHED'}
+
+
+class ATBX_OT_batch_rename_vgrp(bpy.types.Operator):
+    bl_idname = "armatoolbox.batch_rename_vgrp"
+    bl_label = "Find and replace in VGroups"
+    bl_description = "Replace one string by another in VGroups"
+
+    def execute(self, context):
+        guiProps = context.window_manager.armaGUIProps
+        fstring = guiProps.vgrpRename_from
+        tstring = guiProps.vgrpRename_to
+
+
+        obj = bpy.context.active_object
+        bpy.ops.object.mode_set(mode='OBJECT', toggle=True)
+        for g in obj.vertex_groups:
+            g.name = g.name.replace(fstring, tstring)
+
+        return {'FINISHED'}
+
+
+class ATBX_OT_match_vgrp(bpy.types.Operator):
+    bl_idname = "armatoolbox.match_vgrp"
+    bl_label = "Perform operation on matching VGroup"
+    bl_description = "Perform operation on matching VGroup"
+
+    def execute(self, context):
+        guiProps = context.window_manager.armaGUIProps
+        obj = bpy.context.active_object
+        bpy.ops.object.mode_set(mode='OBJECT', toggle=True)
+        try:
+            for g in obj.vertex_groups:
+                match = re.fullmatch(guiProps.vgrpB_match, g.name)
+                if match != None:
+                    # If we get a result, we matched
+                    if guiProps.vgrpB_operation == 'append':
+                        g.name = g.name + guiProps.vgrpB_operator
+                    elif guiProps.vgrpB_operation == 'prefix':
+                        g.name = guiProps.vgrpB_operator + g.name
+        except:
+            self.report({'INFO'}, 'Invalid Matching Pattern')
+            return {'CANCELLED'}
+
+        return {'FINISHED'}
+
 
 op_classes = (
     ATBX_OT_add_frame_range,
@@ -844,6 +1307,7 @@ op_classes = (
     ATBX_OT_rem_all_key_frames,
     ATBX_OT_add_prop,
     ATBX_OT_rem_prop,
+    ATBX_OT_clear_props,
     ATBX_OT_enable,
     ATBX_OT_add_new_proxy,
     ATBX_OT_add_sync_proxies,
@@ -875,7 +1339,28 @@ op_classes = (
     ATBX_OT_selectBadUV,
     ATBX_OT_set_transparency,
     ATBX_OT_unset_transparency,
-    ATBX_OT_select_transparent
+    ATBX_OT_select_transparent,
+    ATBX_OT_set_nontransparency,
+    ATBX_OT_add_config,
+    ATBX_OT_rem_config,
+    ATBX_OT_add_obj_config,
+    ATBX_OT_rem_obj_config,
+    ATBX_OT_all_obj_config,
+    ATBX_OT_renumber_components,
+    ATBX_OT_rep_vgroup_maker,
+    ATBX_OT_copy_proxy_to_objects,
+    ATBX_OT_delete_all_proxies,
+    ATBX_OT_rep_vgroup_extender,
+    ATBX_OT_add_guiprop_config,
+    ATBX_OT_rem_guiprop_config,
+    ATBX_OT_apply_config_batch,
+    ATBX_OT_add_named_selection,
+    ATBX_OT_add_remove_selection,
+    ATBX_OT_named_selection_move,
+    ATBX_OT_set_zbias,
+    ATBX_OT_select_zbiased,
+    ATBX_OT_batch_rename_vgrp,
+    ATBX_OT_match_vgrp
 )
 
 

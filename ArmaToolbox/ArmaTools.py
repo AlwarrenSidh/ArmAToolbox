@@ -7,7 +7,9 @@ Created on 16.01.2014
 import bpy
 import bmesh
 from ArmaProxy import RebaseProxies, GetMaxProxy
-
+import tempfile
+from subprocess import call
+import os
 
 def bulkRename(context, frm, t):
     mats = bpy.data.materials
@@ -639,6 +641,16 @@ def optimizeSectionCountObj(obj):
     # delete vertex group again
     bpy.ops.object.vertex_group_remove()
 
+def GetMaxComponents(objTarget):
+    index = 0
+    for v in objTarget.vertex_groups:
+        name = v.name
+        if name[:9] == "Component":
+            x = int(name[9:])
+            if x>index:
+                index = x
+    return index
+
 # join objJoin to objTarget, merging the proxy arrays.
 # Note that no comparison is made to verify that the
 # objects are the same LOD
@@ -658,7 +670,22 @@ def joinObjectToObject(context):
             n.index = p.index
             n.path = p.path
 
+        for np in objJoin.armaObjProps.namedProps:
+            newnp = objTarget.armaObjProps.namedProps.add()
+            newnp.name = np.name
+            newnp.value = np.value
+
+        if objJoin.armaObjProps is not None:
+            if objJoin.armaObjProps.lod in ['1.000e+13','6.000e+15','7.000e+15','8.000e+15','9.000e+15','1.100e+16','1.200e+16','1.300e+16','1.400e+16','1.500e+16','1.600e+16','2.000e+13','4.000e+13']:
+                for v in objJoin.vertex_groups:
+                    name = v.name
+                    if name[:9] == "Component":
+                        v.name = name + "_" + objJoin.name
+
+
+
     bpy.ops.object.join()
+    RenumberComponents(objTarget)
 
 
 def selectBadUV(self, context, maxAngleDiff = 0.001):
@@ -710,11 +737,11 @@ def markTransparency(self, context, transparent):
             face[trlayer] = transparent
 
 
-def selectTransparency(self, context):
-    selectTransparencyObj(context.active_object)
+def selectTransparency(self, context, selectIndex = 1):
+    selectTransparencyObj(context.active_object, selectIndex)
 
 
-def selectTransparencyObj(obj):
+def selectTransparencyObj(obj, selectIndex = 1):
     bm = bmesh.from_edit_mesh(obj.data)
     if "FHQTransparency" not in bm.faces.layers.int.keys():
         trlayer = bm.faces.layers.int.new('FHQTransparency')
@@ -722,7 +749,7 @@ def selectTransparencyObj(obj):
         trlayer = bm.faces.layers.int["FHQTransparency"]
 
     for face in bm.faces:
-        if face[trlayer] == 1:
+        if face[trlayer] == selectIndex:
             face.select = True
         else:
             face.select = False
@@ -738,9 +765,24 @@ def optimize_export_lod(obj):
 
     selectTransparencyObj(obj)
     optimizeSectionCountObj(obj)
+
+    # Sort different transparency priorities, from high to low.
+    pri = 6
+    while pri > 0:
+        selectTransparencyObj(obj, pri)
+        bpy.ops.mesh.sort_elements(type='SELECTED', reverse=True)
+        pri = pri - 1
+
+
+    # select faces for the opposite site
+    selectTransparencyObj(obj, -1)
+    # sort mesh elements by Selected, reverse
+    bpy.ops.mesh.sort_elements(type='SELECTED', reverse=False)
+
     bpy.ops.object.mode_set(mode='OBJECT')
 
 def PostProcessLOD(obj):
+    print("PostProcessLOD enter")
     me = obj.data
     bm = bmesh.new()
     bm.from_mesh(me)
@@ -752,7 +794,7 @@ def PostProcessLOD(obj):
 
     for face in bm.faces:
         matIndex = face.material_index
-        if matIndex != -1:
+        if matIndex != -1 and obj.material_slots.__len__() != 0:
             material = obj.material_slots[matIndex].material
             if material != None:
                 ap = material.armaMatProps
@@ -768,3 +810,180 @@ def PostProcessLOD(obj):
                         
     bm.to_mesh(me)
     bm.free()
+    print("PostProcessLOD exit")
+
+def RenumberComponents(obj, baseIndex = 1):
+    index = 1
+    for grp in obj.vertex_groups:
+        if grp.name[:9] == "Component":
+            grp.name = "__TOOLBOX_TEMP__" + str(index)
+            index = index + 1
+
+    index = baseIndex
+    for grp in obj.vertex_groups:
+        if grp.name[:16] == "__TOOLBOX_TEMP__":
+            grp.name = "Component{num:02d}".format(num=index)
+            index = index + 1
+
+def GetObjectsByConfig(configName):
+    objects = []
+
+    for obj in bpy.data.objects:
+        if obj.armaObjProps != None:
+            if obj.armaObjProps.isArmaObject == True:
+                arma = obj.armaObjProps
+                if configName in arma.exportConfigs.keys() or arma.alwaysExport == True:
+                    objects.append(obj)
+
+    return objects
+
+def RunO2Script(context, fileName):
+    # Write a temporary O2script file for this
+    filePtr = tempfile.NamedTemporaryFile("w", delete=False)
+    tmpName = filePtr.name
+    filePtr.write("p3d = newLodObject;\n")
+    filePtr.write('_res = p3d loadP3D "%s";\n' % (fileName))
+    filePtr.write("_res = p3d setActive 4e13;")
+    filePtr.write('save p3d;\n')
+    filePtr.close()
+
+    user_preferences = context.preferences
+    addon_prefs = user_preferences.addons["ArmaToolbox"].preferences
+    command = addon_prefs.o2ScriptProp
+    command = '"' + command + '" "' + tmpName + '"'
+    call(command, shell=True)
+    os.remove(tmpName)
+
+def NeedsResolution(lod):
+    lodPresetsNeedingResolution = [
+        
+        '-1.0',     # 'Custom', 'Custom Viewing Distance'),
+        '1.200e+3',  # 'View Cargo', 'View Cargo'),
+        '1.000e+4', # 'Stencil Shadow', 'Stencil Shadow'),
+        '1.001e+4', # 'Stencil Shadow 2', 'Stencil Shadow 2'),
+        '1.100e+4', # 'Shadow Volume', 'Shadow Volume'),
+        '1.101e+4', # 'Shadow Volume 2', 'Shadow Volume 2'),
+        '8.000e+15', # 'View Cargo Geometry', 'View Cargo Geometry'),
+        '1.800e+16', # 'Shadow Volume - View Cargo', 'Cargo View shadow volume'),
+        '2.000e+4',  # 'Edit', 'Edit'),
+    ]
+
+    if type(lod) == type(0.0):
+        return FloatNeedsResolution(lod)
+
+    if lod in lodPresetsNeedingResolution:
+        return True
+    else:
+        return False
+
+
+def FloatNeedsResolution(lod):
+    lodPresetsNeedingResolution = [
+
+        '-1.0',     # 'Custom', 'Custom Viewing Distance'),
+        '1.200e+03',  # 'View Cargo', 'View Cargo'),
+        '1.000e+04',  # 'Stencil Shadow', 'Stencil Shadow'),
+        '1.001e+04',  # 'Stencil Shadow 2', 'Stencil Shadow 2'),
+        '1.100e+04',  # 'Shadow Volume', 'Shadow Volume'),
+        '1.101e+04',  # 'Shadow Volume 2', 'Shadow Volume 2'),
+        '8.000e+15',  # 'View Cargo Geometry', 'View Cargo Geometry'),
+        '1.800e+16',  # 'Shadow Volume - View Cargo', 'Cargo View shadow volume'),
+        '2.000e+04',  # 'Edit', 'Edit'),
+    ]
+
+    lod = format(lod, ".3e")
+
+    if lod in lodPresetsNeedingResolution:
+        return True
+    else:
+        return False
+
+def GetVertexGroupsForVertex(obj, vertex):
+    groupNames = []
+    for grp in obj.data.vertices[vertex].groups:
+        if grp.weight > 0:
+            index = grp.group
+            groupNames.append(obj.vertex_groups[index].name)
+
+    return groupNames
+
+def GetFirstVertexOfGroup(obj, groupName):
+    groupIndex = obj.vertex_groups.find(groupName)
+    if groupIndex == -1:
+        return -1
+
+    for v in obj.data.vertices:
+        for g in v.groups:
+            if g.group == groupIndex:
+                return v.index
+    
+    return -1
+
+
+def testBatchCondition(guiProps, configList, obj):
+    if guiProps.bex_applyAll:
+        return True
+
+    # Test if the guiProps set up config batch operation matches the object
+    if guiProps.bex_choice == 'any':
+        for conf in guiProps.bex_exportConfigs:
+            arma = obj.armaObjProps
+            if conf.name in arma.exportConfigs.keys() or arma.alwaysExport == True:
+                return True
+    elif guiProps.bex_choice == 'all':
+        ret = True
+        for conf in guiProps.bex_exportConfigs:
+            arma = obj.armaObjProps
+            if not (conf.name in arma.exportConfigs.keys() or arma.alwaysExport == True):
+                ret = False
+                break
+        return ret
+    elif guiProps.bex_choice == 'exact':
+        
+        arma = obj.armaObjProps
+        for name in configList.keys():
+            inObj = name in arma.exportConfigs.keys()
+            inList = name in guiProps.bex_exportConfigs.keys()
+            if inObj != inList:
+                return False
+        return True
+
+    return False
+
+def getBMeshFaceFlags(bmesh):
+    if "FHQFaceFlags" not in bmesh.faces.layers.int.keys():
+        fflayer = bmesh.faces.layers.int.new('FHQFaceFlags')
+    else:
+        fflayer = bmesh.faces.layers.int["FHQFaceFlags"]
+
+    return fflayer
+
+def selectFaceFlags(self, context, flags, mask):
+    selectFaceFlagsObj(context.active_object, flags, mask)
+
+def selectFaceFlagsObj(obj, flags, mask):
+    bm = bmesh.from_edit_mesh(obj.data)
+    fflayer = getBMeshFaceFlags(bm)
+
+    for face in bm.faces:
+        if face[fflayer] & mask == flags:
+            face.select = True
+        else:
+            face.select = False
+
+    bmesh.update_edit_mesh(obj.data)
+
+
+def setFaceFlags(self, context, flags, mask):
+    # FIXME: Needed?
+    bpy.ops.object.mode_set(mode="OBJECT")
+    bpy.ops.object.mode_set(mode="EDIT")
+
+    bm = bmesh.from_edit_mesh(context.active_object.data)
+    fflayer = getBMeshFaceFlags(bm)
+
+    for face in bm.faces:
+        if face.select:
+            fl = face[fflayer] & ~mask
+            face[fflayer] = fl | flags
+

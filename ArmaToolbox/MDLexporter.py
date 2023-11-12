@@ -5,13 +5,59 @@ Created on 21.02.2014
 '''
 
 import bpy
+import bpy_extras
 import os
 import math
 import struct
 import bmesh
 import ArmaTools
-
+from ArmaTools import RenumberComponents
+from ArmaTools import NeedsResolution
 from properties import lodName
+import os.path as path
+
+
+geometryLods = [
+    '1.000e+13',
+    '6.000e+15',
+    '7.000e+15',
+    '8.000e+15',
+    '9.000e+15',
+    '1.100e+16',
+    '1.200e+16',
+    '1.300e+16',
+    '1.400e+16',
+    '1.500e+16',
+    '1.600e+16',
+    '2.000e+13',
+    '4.000e+13'
+]
+
+def getTempCollection():
+    coll = bpy.data.collections.get("tempStuff")
+    if (coll == None):
+        coll = bpy.data.collections.new("tempStuff")
+    return coll
+
+def FixupResolution(lod, offset):
+    if lod < 8.0e15:
+        return lod+offset
+    
+    exp = format(lod, ".3e")
+    expnt = exp[-2:]
+    if expnt == "15":
+        offs = format(offset, "02.0f")
+        res = exp[0:2] + offs + "e+15"
+        print("Fixup: lod = ", float(res), "string=",res,"offs = ", offs)
+        return float(res)
+
+    if expnt == '16':
+        offs = format(offset, "02.0f")
+        res = exp[0:3] + offs + "e+16"
+        print("Fixup: lod = ", float(res), "string=", res, "offs = ", offs)
+        return float(res)
+
+    return float(exp)
 
 def stripAddonPath(path):
     if path == "" or path == None: 
@@ -53,6 +99,8 @@ def getMaterialInfo(face, obj):
 def lodKey(obj):
     if obj.armaObjProps.lod == "-1.0":
         return obj.armaObjProps.lodDistance
+    elif NeedsResolution(obj.armaObjProps.lod):
+        return float(obj.armaObjProps.lod) + obj.armaObjProps.lodDistance
     else:
         return float(obj.armaObjProps.lod)
 
@@ -122,7 +170,14 @@ def writeVertices(filePtr, mesh):
 
 
 def writeFaces(filePtr, obj, mesh):
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bm.faces.ensure_lookup_table()
+    fflayer = ArmaTools.getBMeshFaceFlags(bm)
+
     for idx,face in enumerate(mesh.polygons):
+        faceFlags = bm.faces[idx][fflayer]
+
         if len(face.vertices) > 4:
             raise RuntimeError("Model " + obj.name + " contains n-gons and cannot be exported")
         materialName, textureName = getMaterialInfo(face, obj)
@@ -153,10 +208,11 @@ def writeFaces(filePtr, obj, mesh):
             writeULong(filePtr, 0)
             writeFloat(filePtr, 0.0)
             writeFloat(filePtr, 0.0)
-        writeULong(filePtr, 0)
+        writeULong(filePtr, faceFlags)
         writeString(filePtr, textureName)
         writeString(filePtr, materialName)
-
+    
+    bm.free()
 
 def proxyPathStrip(pathName):
     if len(pathName) > 3:
@@ -248,8 +304,9 @@ def writeNamedSelections(filePtr, obj, mesh):
         # Using a set will make sure they are unique
         groups = set([grp.group for vert in face.vertices for grp in mesh.vertices[vert].groups])
         for grpIdx in groups:
-            weight = sum([grp.weight for vert in face.vertices for grp in mesh.vertices[vert].groups if grp.group == grpIdx])
-            if weight > 0:
+            weight = ([grp.weight>0 for vert in face.vertices for grp in mesh.vertices[vert].groups if grp.group == grpIdx])
+            #print("weight = ",weight)
+            if len(weight) == len(face.vertices):
                 name = obj.vertex_groups[grpIdx].name
                 selectionsFace[name].add(face.index)
 
@@ -414,7 +471,7 @@ def export_lod(filePtr, obj, wm, idx):
     if lod < 0:
         lod = -lod
     
-    print("lod = ", lod, lodName(lod))
+    print("lod = ", lod, lodName(lod), obj.armaObjProps.lodDistance)
 
     #if lod == 1.000e+13 or lod == 4.000e+13:
     #    checkMass(obj, lod, mesh)
@@ -427,7 +484,7 @@ def export_lod(filePtr, obj, wm, idx):
     # Write number of vertices, normals, and faces
     writeULong(filePtr, len(mesh.vertices))         # Number of Vertices
     writeULong(filePtr, numberOfNormals)            # Number of Normals
-    writeULong(filePtr, len(mesh.polygons))   # Number of Faces
+    writeULong(filePtr, len(mesh.polygons))         # Number of Faces
     writeULong(filePtr, 0)                          # Unused Flags
     
     # Write vertices/Points
@@ -487,32 +544,42 @@ def export_lod(filePtr, obj, wm, idx):
     writeByte(filePtr, True)
     writeString(filePtr, '#EndOfFile#')
     writeULong(filePtr, 0)
-    if lod == 1.000e4 or lod == 2.000e4:
-        writeFloat(filePtr, lod+obj.armaObjProps.lodDistance)
+    
+    if NeedsResolution(lod): ## FIXME: Is this correct?
+        #print("---------->Needs resolution for lod ", format(lod, ".3e"), " results in ", format(FixupResolution(lod, obj.armaObjProps.lodDistance), ".3e"))
+        writeFloat(filePtr, FixupResolution(lod,obj.armaObjProps.lodDistance))
     else:
         writeFloat(filePtr, lod)
     
     
 def sameLod(objects, index):
-    print("index = ", index, "len = ", len(objects))
+    #print("index = ", index, "len = ", len(objects))
     if (index + 1) >= len(objects):
         return False
     obj = objects[index]
     obj2 = objects[index + 1]
+    #print("sameLOD: ",obj.name_full, "/",obj.armaObjProps.lod, "/", obj.armaObjProps.lodDistance)
+    #print("sameLOD:     ", obj2.name_full, "/", obj2.armaObjProps.lod, "/", obj2.armaObjProps.lodDistance)
     # Handle Shadows by lod
-    if lodKey(obj) == 1.000e+4 and lodKey(obj2) == 1.000e+4:
-        if obj.armaObjProps.lodDistance == obj2.armaObjProps.lodDistance:
+    #if lodKey(obj) == 1.000e+4 and lodKey(obj2) == 1.000e+4:
+    if NeedsResolution(obj.armaObjProps.lod) and NeedsResolution(obj2.armaObjProps.lod):
+        if obj.armaObjProps.lodDistance == obj2.armaObjProps.lodDistance and obj.armaObjProps.lod == obj2.armaObjProps.lod:
+            #print(obj.name_full, "is same LOD as ", obj2.name_full)
             return True
         else:
+            #print(obj.name_full, "is NOT same LOD as ", obj2.name_full)
             return False
 
     # normal compare
     if lodKey(obj) == lodKey(obj2):
+        #print(obj.name_full, "is same LOD as ",obj2.name_full, "(no resolution)")
         return True
 
+    print(obj.name_full, "is same LOD as ", obj2.name_full, "(no resolution)")
     return False
 
 def duplicateObject(obj):
+    print("duplicateObject: ", obj.name_full)
     newObj = obj.copy()
     newObj.data = obj.data.copy()
 
@@ -534,9 +601,12 @@ def duplicateObject(obj):
 
     return newObj
 
-def exportLodLevelWithModifiers(myself, filePtr, obj, wm, idx, applyModifiers):
+
+def exportLodLevelWithModifiers(myself, filePtr, obj, wm, idx, applyModifiers, renumberComponents, applyTransforms, originObject):
     print("Exporting lod " , lodKey(obj), "of object", obj.name)
-    if applyModifiers == False:
+    coll = getTempCollection()
+    print("------------------------------- Origin Object = ", originObject)
+    if applyModifiers == False and originObject == None:
         # Simply export if we don't want to apply modifiers
         export_lod(filePtr, obj, wm, idx)
     else:
@@ -550,7 +620,32 @@ def exportLodLevelWithModifiers(myself, filePtr, obj, wm, idx, applyModifiers):
 
         #tmpObj = bpy.context.selected_objects[0]
         tmpObj = duplicateObject(obj)
-        applyModifiersOnObject(tmpObj)
+        coll.objects.link(tmpObj)
+
+        if originObject != None:
+            applyTransforms = True # this implies applyTransforms
+            # Move/rotate/scale the temp object into position.
+            tmpObj.location = originObject.location
+            tmpObj.rotation_euler = originObject.rotation_euler
+            tmpObj.scale = originObject.scale
+            #print("***************** Applying new location for exported object")
+            #bpy.ops.object.transform_apply(
+            #            location=True, rotation=True, scale=True)
+            #if (int(tmpObj.armaObjProps.lod) < 100):
+            #    raise(ValueError)
+            
+
+
+        if applyModifiers:
+            applyModifiersOnObject(tmpObj)
+        if applyTransforms:
+                    bpy.ops.object.transform_apply(
+                        location=True, rotation=True, scale=True)
+                        
+        if renumberComponents:
+            possiblyRenumberComponents(tmpObj)
+
+
         export_lod(filePtr, tmpObj, wm, idx)
         bpy.ops.object.delete()
 
@@ -561,8 +656,15 @@ def applyModifiersOnObject(tmpObj):
         print("--> Applying modifier " , mod.name, "on",tmpObj.name)
         bpy.ops.object.modifier_apply(modifier=mod.name)
 
+def possiblyRenumberComponents(obj):
+    bpy.context.view_layer.objects.active = obj
+    obj.select_set(True)
+    if obj.armaObjProps.lod in geometryLods:
+        print("Renumbering components on " + obj.name)
+        RenumberComponents(obj)
+
 # Export a couple of meshes to a P3D MLOD files    
-def exportMDL(myself, filePtr, selectedOnly, applyModifiers, mergeSameLOD):
+def exportMDL(myself, filePtr, selectedOnly, applyModifiers, mergeSameLOD, renumberComponents, applyTransforms):
     if selectedOnly:
         objects = [obj
                     for obj in bpy.context.selected_objects
@@ -580,17 +682,20 @@ def exportMDL(myself, filePtr, selectedOnly, applyModifiers, mergeSameLOD):
     if len(objects) == 0:
         return False
     
-    exportObjectListAsMDL(myself, filePtr, applyModifiers, mergeSameLOD, objects)
+    exportObjectListAsMDL(myself, filePtr, applyModifiers,
+                          mergeSameLOD, objects, renumberComponents, applyTransforms, None)
 
     return True
 
-def exportObjectListAsMDL(myself, filePtr, applyModifiers, mergeSameLOD, objects):
+
+def exportObjectListAsMDL(myself, filePtr, applyModifiers, mergeSameLOD, objects, renumberComponents, applyTransforms, originObject):
+
+    print("originObject =", originObject)
 
     objects = sorted(objects, key=lodKey)
 
     # Make sure the object is in OBJECT mode, otherwise some of the functions might fail
-    if (bpy.context.object.mode!='OBJECT'):
-        bpy.ops.object.mode_set(mode='OBJECT')
+    bpy.ops.object.mode_set(mode='OBJECT')
     
     # Write file header
     writeSignature(filePtr, 'MLOD')
@@ -601,6 +706,9 @@ def exportObjectListAsMDL(myself, filePtr, applyModifiers, mergeSameLOD, objects
     total = len(objects) * 5
     wm.progress_begin(0, total)
 
+    coll = getTempCollection()
+    bpy.context.scene.collection.children.link(coll)
+    
 
     if mergeSameLOD == False:
 
@@ -608,7 +716,8 @@ def exportObjectListAsMDL(myself, filePtr, applyModifiers, mergeSameLOD, objects
 
         # For each object, export a LOD
         for idx, obj in enumerate(objects):
-            exportLodLevelWithModifiers(myself, filePtr, obj, wm, idx, applyModifiers)
+            exportLodLevelWithModifiers(
+                myself, filePtr, obj, wm, idx, applyModifiers, renumberComponents, applyTransforms, originObject)
 
 
     else:
@@ -623,6 +732,7 @@ def exportObjectListAsMDL(myself, filePtr, applyModifiers, mergeSameLOD, objects
                 print ("There are objects to merge")
                 # Copy this object and merge all subsequent objects of the same LOD
                 newTmpObj = duplicateObject(obj)
+                coll.objects.link(newTmpObj)
                 mergedObjects = []
                 if applyModifiers:
                     applyModifiersOnObject(newTmpObj)
@@ -631,6 +741,7 @@ def exportObjectListAsMDL(myself, filePtr, applyModifiers, mergeSameLOD, objects
                     idx = idx + 1
                     mergeObj = objects[idx]
                     newObj = duplicateObject(mergeObj)
+                    coll.objects.link(newObj)
                     if applyModifiers:
                         applyModifiersOnObject(newObj)
                     mergedObjects.append(newObj)
@@ -642,7 +753,19 @@ def exportObjectListAsMDL(myself, filePtr, applyModifiers, mergeSameLOD, objects
 
                 newTmpObj.select_set(True)
                 bpy.context.view_layer.objects.active = newTmpObj
-                ArmaTools.joinObjectToObject(bpy.context)      
+                ArmaTools.joinObjectToObject(bpy.context)
+
+                if originObject != None:
+                    applyTransforms = True # this implies applyTransforms
+                    # Move/rotate/scale the temp object into position.
+                    newTmpObj.location = originObject.location
+                    newTmpObj.rotation_euler = originObject.rotation_euler
+                    newTmpObj.scale = originObject.scale
+
+                if applyTransforms:
+                    bpy.ops.object.transform_apply(
+                        location=True, rotation=True, scale=True)
+
                 export_lod(filePtr, newTmpObj, wm, realIndex)
 
                 # Make sure we only have this one selected and delete it
@@ -652,9 +775,188 @@ def exportObjectListAsMDL(myself, filePtr, applyModifiers, mergeSameLOD, objects
                 bpy.ops.object.delete()
             else:
                 exportLodLevelWithModifiers(
-                    myself, filePtr, obj, wm, idx, applyModifiers)
+                    myself, filePtr, obj, wm, idx, applyModifiers, renumberComponents, applyTransforms, originObject)
                     
             idx = idx + 1
 
+
+    if coll:
+        obs = [o for o in coll.objects if o.users == 1]
+        while obs:
+            bpy.data.objects.remove(obs.pop())
+
+        bpy.data.collections.remove(coll)
+
     wm.progress_end()
         
+
+def add_defined_export_configs(self, context):
+    items = []
+    scene = context.scene
+    items.append(("-2", "All", ""))
+    items.append(("-1", "Selected Only", ""))
+    for item in scene.armaExportConfigs.exportConfigs.values():
+        items.append((item.name, item.name, ""))
+
+    return items
+
+# Operators and Panels
+
+class ATBX_PT_p3d_export_options(bpy.types.Panel):
+    bl_space_type = 'FILE_BROWSER'
+    bl_region_type = 'TOOL_PROPS'
+    bl_label = "Options"
+    bl_parent_id = "FILE_PT_operator"
+
+    @classmethod
+    def poll(cls, context):
+        sfile = context.space_data
+        operator = sfile.active_operator
+        
+        return operator.bl_idname == "ARMATOOLBOX_OT_export_p3d"
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False  # No animation.
+
+        sfile = context.space_data
+        operator = sfile.active_operator
+
+        layout.prop(operator, "config",
+                    text="Export")
+        layout.prop(operator, "applyModifiers")
+        layout.prop(operator, "mergeSameLOD")
+        layout.prop(operator, "renumberComponents")
+        layout.prop(operator, "applyTransforms")
+
+class ATBX_OT_p3d_export(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
+    bl_idname = "armatoolbox.export_p3d"
+    bl_label = "Export as P3D"
+    bl_description = "Export as P3D"
+    bl_options = {'PRESET'}
+
+    filter_glob: bpy.props.StringProperty(
+        default="*.p3d",
+        options={'HIDDEN'})
+
+    selectionOnly: bpy.props.BoolProperty(
+        name="Selection Only",
+        description="Export selected objects only",
+        default=False)
+
+    applyModifiers: bpy.props.BoolProperty(
+        name="Apply Modifiers",
+        description="Apply modifiers before export (experimental)",
+        default=True)
+
+    mergeSameLOD: bpy.props.BoolProperty(
+        name="Merge Same LODs",
+        description="Merge objects with the same LOD in exported file (experimental)",
+        default=True)
+
+    renumberComponents: bpy.props.BoolProperty(
+        name="Re-Number Components in Geometry LODS",
+        description="If set, geometry lods will get their components renumbered to be contiguous",
+        default=True
+    )
+
+    applyTransforms: bpy.props.BoolProperty(
+        name="Apply all transforms",
+        description="Apply rotation, scale, and position transforms before exporting",
+        default=True
+    )
+
+    specificConfig: bpy.props.StringProperty(
+        name="Export Config",
+        description = "Config to export"
+    )
+
+    config: bpy.props.EnumProperty(
+        name="Export",
+        description="What to export",
+        items=add_defined_export_configs,
+        default=0
+    )
+
+    filename_ext = ".p3d"
+
+    def draw(self, context):
+        pass
+
+    def execute(self, context):
+
+        if context.view_layer.objects.active == None:
+            context.view_layer.objects.active = context.view_layer.objects[0]
+        print("CONFIG: " + self.config)
+        if self.config == "-1":
+            self.selectionOnly = True
+            objects = [obj
+                       for obj in bpy.context.selected_objects
+                       if obj.type == 'MESH' and obj.armaObjProps.isArmaObject
+                       ]
+            for o in objects:
+                print("------" + o.name)
+            filePtr = open(self.filepath, "wb")
+            exportObjectListAsMDL(
+                self, filePtr, self.applyModifiers, self.mergeSameLOD, objects, self.renumberComponents, self.applyTransforms, None)
+            filePtr.close()
+
+            ArmaTools.RunO2Script(context, self.filepath)
+        elif self.config == "-2":
+            #try:
+            # Open the file and export
+            filePtr = open(self.filepath, "wb")
+            exportMDL(self, filePtr, False,
+                    self.applyModifiers, self.mergeSameLOD, self.renumberComponents, self.applyTransforms)
+            filePtr.close()
+
+            ArmaTools.RunO2Script(context, self.filepath)
+
+            
+        else:
+            print("Export config " + self.config)
+            objs = ArmaTools.GetObjectsByConfig(self.config)
+            print("Config: " + self.config)
+            config = context.scene.armaExportConfigs.exportConfigs[self.config]
+            fileName = self.filepath
+            print("  exporting to " + fileName)
+            try:
+                filePtr = open(fileName, "wb")
+                context.view_layer.objects.active = objs[0]
+                exportObjectListAsMDL(
+                    self, filePtr, self.applyModifiers, True, objs, self.renumberComponents, self.applyTransforms, config.originObject)
+                filePtr.close()
+                ArmaTools.RunO2Script(context, fileName)
+            except:
+                self.report({'ERROR'}, "Error writing file " + fileName +
+                            " for config " + config.name + ":" + str(sys.exc_info()[0]))
+                return {'CANCELLED'}
+            
+        return{'FINISHED'}
+
+clses = (
+    # Properties
+
+    # Operators
+    ATBX_OT_p3d_export,
+
+    # Panels
+    ATBX_PT_p3d_export_options,
+)
+
+
+def register():
+
+    from bpy.utils import register_class
+
+    for cs in clses:
+        register_class(cs)
+
+
+def unregister():
+
+    from bpy.utils import unregister_class
+
+    for cs in clses:
+        unregister_class(cs)

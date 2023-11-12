@@ -3,6 +3,7 @@ import os.path as Path
 import RVMatTools
 from math import *
 from mathutils import *
+import ArmaTools
 
 class ATBX_PT_properties_panel(bpy.types.Panel):
     bl_idname = "ATBX_PT_properties_panel"
@@ -44,14 +45,8 @@ class ATBX_PT_properties_panel(bpy.types.Panel):
                 #else:
                 #--- The LOD selection
                 row = layout.row()
-                if arma.lod == '-1.0':
+                if ArmaTools.NeedsResolution(arma.lod):
                     box = row.box()
-                    newrow = box.row()
-                    newrow.prop(arma, "lod", text = "LOD Preset")
-                    newrow = box.row()
-                    newrow.prop(arma, "lodDistance", text = "Resolution")
-                elif arma.lod == "1.000e+4" or arma.lod == "1.001e+4" or arma.lod == "1.100e+4" or arma.lod == "1.101e+4" or arma.lod == "2.000e+4":
-                    box = row.box();
                     newrow = box.row()
                     newrow.prop(arma, "lod", text = "LOD Preset")
                     if arma.lod == "1.001e+4" or arma.lod == "1.101e+4":
@@ -60,37 +55,9 @@ class ATBX_PT_properties_panel(bpy.types.Panel):
                     newrow = box.row()
                     newrow.prop(arma, "lodDistance", text = "Resolution")
                 else:
-                    row.prop(arma,  "lod", text = "LOD Preset")
+                   row.prop(arma,  "lod", text = "LOD Preset")
 
-                #--- Named Props
-                row = layout.row()
-                row.label(text = "Named Properties")
-                row = layout.row()
-                
-                row = layout.row()
-                row.template_list(listtype_name = "ATBX_UL_named_prop_list", 
-                                dataptr = arma,
-                                propname = "namedProps",
-                                active_dataptr = arma,
-                                active_propname="namedPropIndex",
-                                list_id="ATBX_namedProps");
-                col = row.column(align=True)
-                col.operator("armatoolbox.add_prop", icon="ADD")
-                col.operator("armatoolbox.rem_prop", icon="REMOVE")    
-                
-                if arma.namedPropIndex > -1 and arma.namedProps.__len__() > arma.namedPropIndex:
-                    nprop = arma.namedProps[arma.namedPropIndex]
-                    box = layout.box()
-                    row = box.row()
-                    row.prop(nprop, "name", text = "Name")
-                    row = box.row()
-                    row.prop(nprop, "value", text = "Value")
-                else:
-                    box = layout.box()
-                    row = box.row()
-                    row.label(text = "Name")
-                    row = box.row()
-                    row.label(text = "Value")
+
             elif obj.type == "ARMATURE":
                 #if (arma.isArmaObject == False):
                 #    row = layout.row();
@@ -168,7 +135,12 @@ class ATBX_PT_proxy_panel(bpy.types.Panel):
         layout = self.layout
         row = layout.row()
         row.operator("armatoolbox.add_new_proxy", text = "Add Proxy")
+        row = layout.row()
         row.operator("armatoolbox.sync_proxies", text = "Sync with model")
+        row = layout.row()
+        row.operator("armatoolbox.copy_proxy_to_objects", text = "Copy Proxies to Other")
+        row = layout.row()
+        row.operator("armatoolbox.delete_all_proxies", text = "Delete all Proxies (DANGER!)")
         
         for prox in obj.armaObjProps.proxyArray:
             box = layout.box()
@@ -206,9 +178,6 @@ class ATBX_PT_proxy_panel(bpy.types.Panel):
                 delOp = row.operator("armatoolbox.delete_proxy", text = "", icon="X", emboss=False)
                 delOp.proxyName = prox.name
                 
-        row = layout.row()
-        row.operator("armatoolbox.add_new_proxy", text = "Add Proxy")
-        row.operator("armatoolbox.sync_proxies", text = "Sync with model")
 
 class ATBX_PT_weight_tool_panel(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
@@ -404,10 +373,11 @@ class ATBX_PT_tool_panel(bpy.types.Panel):
         # Component Creator
         row = layout.row()
         row.operator("armatoolbox.create_components", text = "Create Geometry Components")
+        row.operator("armatoolbox.renumber_components", text ="Renumber Existing Components")
 
         # Tessalte non-quads
-        row = layout.row()
-        row.operator("armatoolbox.ensure_quads", text = "Tesselate all non-quads")
+        #row = layout.row()
+        #row.operator("armatoolbox.ensure_quads", text = "Tesselate all non-quads")
 
         # Section Optimize
         row = layout.row()
@@ -452,7 +422,7 @@ class ATBX_PT_material_relocation_panel(bpy.types.Panel):
         
         for mat in materials:
             matName, texName = RVMatTools.mt_getMaterialInfo(mat)
-            if len(texName) > 0 and texName not in texNames and texName[0] is not "#":
+            if len(texName) > 0 and texName not in texNames and texName[0] != "#":
                 texNames.append(texName)
             if len(matName)> 0 and matName not in matNames:
                 matNames.append(matName)
@@ -538,7 +508,9 @@ class ATBX_PT_hf_properties_panel(bpy.types.Panel):
        
         return (obj 
             and obj.select_get() == True
-            and (obj.type == "MESH" or obj.type == "ARMATURE") )
+            and (obj.type == "MESH" or obj.type == "ARMATURE") 
+            and obj.armaObjProps != None
+            and obj.armaObjProps.isArmaObject == False)
         
     def draw_header(self, context):
         obj = context.active_object
@@ -696,22 +668,340 @@ class ATBX_PT_transparency_panel(bpy.types.Panel):
 
     def draw(self, context):
         obj = context.active_object
-        guiProp = context.window_manager.armaGUIProps
+        guiProps = context.window_manager.armaGUIProps
         layout = self.layout
-        row = layout.column()
+        row = layout.row()
         
-
-        layout.operator("armatoolbox.set_transparency",
+        row.prop(guiProps, "trlevel_level", text="Priority")
+        
+        row = layout.row()
+        row.operator("armatoolbox.set_transparency",
                         text="Set Transparent")
-        layout.operator("armatoolbox.unset_transparency",
+        row = layout.row()
+        row.operator("armatoolbox.unset_transparency",
                         text="Unset Transparent")
-        layout.operator("armatoolbox.select_transparent",
+        row = layout.row()
+        row.operator("armatoolbox.select_transparent",
                         text="Select Transparent Faces")
+        row = layout.row()
+        row.operator('armatoolbox.set_nontransparency',
+                        text="Set to Opposite")
         
+class ATBX_PT_export_configs_panel(bpy.types.Panel):
+    bl_category = "Arma 3 Export Configs"
+    bl_idname = "ATBX_PT_export_configs"
+    bl_label = "Arma 3 Export Configs"
+    bl_options = {'DEFAULT_CLOSED'}
+    bl_region_type = 'WINDOW'
+    bl_space_type = 'PROPERTIES'
+    bl_context = "scene"
+
+    def draw(self,context):
+        layout = self.layout
+        row = layout.row()
+
+        row.template_list(listtype_name="ATBX_UL_export_config_list",
+                          dataptr=context.scene.armaExportConfigs,
+                          propname="exportConfigs",
+                          active_dataptr = context.window_manager,
+                          active_propname = "armaActiveExportConfig",
+                          list_id = "ATBX_export_configs"
+        )
+        col = row.column(align=True)
+        col.operator("armatoolbox.add_config", icon="ADD")
+        col.operator("armatoolbox.rem_config", icon="REMOVE")
         
+        prp = context.scene.armaExportConfigs.exportConfigs
+        active = context.window_manager.armaActiveExportConfig
+        
+        if active > -1 and prp.__len__() > active:
+            nprop = prp[active]
+            box = layout.box()
+            #row = box.row()
+            #row.prop(nprop, "name", text="Name")
+            row = box.row()
+            row.prop(nprop, "fileName", text="File name")
+            row = box.row()
+            row.prop(nprop, "originObject", text="Origin")
+        else:
+            box = layout.box()
+            row = box.row()
+            #row.label(text = "Name")
+            #row = box.row()
+            row.label(text = "File Name")
+
+
+class ATBX_PT_export_configs_batch_panel(bpy.types.Panel):
+    bl_category = "Arma 3 Export Configs Batch"
+    bl_idname = "ATBX_PT_export_configs_batch"
+    bl_label = "Arma 3 Export Configs Batch Operations"
+    bl_options = {'DEFAULT_CLOSED'}
+    bl_region_type = 'WINDOW'
+    bl_space_type = 'PROPERTIES'
+    bl_context = "scene"
+
+    def draw(self, context):
+        layout = self.layout
+        row = layout.row()
+
+        guiProps = context.window_manager.armaGUIProps
+
+        row.label(text="Add this config")
+        row = layout.row()
+        row.prop(guiProps, "bex_config", text="")
+
+        row = layout.row()
+        row.label(text="to all objects that contain")
+        row = layout.row()
+        row.prop(guiProps, "bex_choice", text = "")
+
+        row = layout.row()
+        row.prop(guiProps, "bex_applyAll", text = "Apply to everything")
+
+        if context.scene.armaExportConfigs.exportConfigs.keys().__len__() != 0 and guiProps.bex_applyAll == False:
+            col = layout.box().column(align=True)
+            for item in context.scene.armaExportConfigs.exportConfigs.values():
+                row = col.row()
+                row.alignment = 'LEFT'
+                name = item.name
+                is_enabled = name in guiProps.bex_exportConfigs.keys()
+                row.operator(
+                    "armatoolbox.rem_guiprop_config" if is_enabled else "armatoolbox.add_guiprop_config",
+                    icon='CHECKBOX_HLT' if is_enabled else 'CHECKBOX_DEHLT',
+                    text=name,
+                    emboss=False
+                ).config_name=name
+
+        row = layout.row()
+        row.operator("armatoolbox.apply_config_batch", text="Apply")
+
+class ATBX_PT_export_config_object_panel(bpy.types.Panel):
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "Arma 3"
+    bl_label = "Export Configs"
+    #bl_parent_id = "ATBX_PT_properties_pane"
+    # bl_options = {'DEFAULT_CLOSED'}
+
+    @classmethod
+    def poll(cls, context):
+        ## Visible when there is a selected object, it is a mesh
+        obj = context.active_object
+
+        return (obj
+                and obj.select_get() == True
+                and obj.armaObjProps != None
+                and obj.armaObjProps.isArmaObject == True
+                and obj.type == "MESH")
+
+    def draw(self, context):
+        obj = context.active_object
+        arma = obj.armaObjProps
+        layout = self.layout
+
+        row = layout.row()
+        row.label(text = "Included in configs:")
+        row = layout.row()
+        row.prop(arma, "alwaysExport", text="Include in every config")
+
+        if arma.alwaysExport == False:
+            if context.scene.armaExportConfigs.exportConfigs.keys().__len__() != 0:
+                col = layout.box().column(align=True)
+                for item in context.scene.armaExportConfigs.exportConfigs.values():
+                    row = col.row()
+                    row.alignment = 'LEFT'
+                    name = item.name
+                    is_enabled = name in arma.exportConfigs.keys()
+                    row.operator(
+                        "armatoolbox.rem_obj_config" if is_enabled else "armatoolbox.add_obj_config",
+                        icon='CHECKBOX_HLT' if is_enabled else 'CHECKBOX_DEHLT',
+                        text=name,
+                        emboss=False
+                    ).config_name=name
+
+
+class ATBX_PT_vgroup_maker_panel(bpy.types.Panel):
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_label = "VGroup Maker"
+    bl_category = "Arma 3 Tools"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    @classmethod
+    def poll(cls, context):
+        ## Visible when there is a selected object, it is a mesh
+        obj = context.active_object
+
+        return (obj
+                and obj.select_get() == True
+                and obj.armaObjProps != None
+                and obj.armaObjProps.isArmaObject == True
+                and obj.type == "MESH")
+
+    def draw(self, context):
+        obj = context.active_object
+        arma = obj.armaObjProps
+        layout = self.layout
+        guiProps = context.window_manager.armaGUIProps
+
+        row = layout.row()
+        row.prop(guiProps, "vgr_vgroup_name", text = "Template")
+        row = layout.row()
+        row.prop(guiProps, "vgr_deselect_all", text = "Afterwards")
+        row = layout.row()
+        col = row.column()
+        col.prop(guiProps, "vgr_vgroup_baseEnable", text="");
+        col = row.column()
+        col.enabled = guiProps.vgr_vgroup_baseEnable
+        col.prop(guiProps, "vgr_vgroup_base", text = "Base Index")
+        row = layout.row()
+        row.operator("armatoolbox.rep_vgroup_maker", text = "Make Vertex Group")
+        row = layout.row()
+        row.label(text = "VGroup Extender")
+        row = layout.row()
+        row.prop(guiProps, "vgr_vgroup_num", text = "# to extend")
+        row = layout.row()
+        row.operator("armatoolbox.rep_vgroup_extender", text = "Extend Vertex Group")
+
+
+class ATBX_PT_named_selection_panel(bpy.types.Panel):
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "Arma 3"
+    bl_label = "Named Selections"
+    #bl_parent_id = "ATBX_PT_properties_pane"
+    # bl_options = {'DEFAULT_CLOSED'}
+
+    @classmethod
+    def poll(cls, context):
+        ## Visible when there is a selected object, it is a mesh
+        obj = context.active_object
+
+        return (obj
+                and obj.select_get() == True
+                and obj.armaObjProps != None
+                and obj.armaObjProps.isArmaObject == True
+                and obj.type == "MESH")
+
+    def draw(self, context):
+        obj = context.active_object
+        arma = obj.armaObjProps
+        layout = self.layout       
+        row = layout.row()
+        row.template_list(listtype_name="ATBX_UL_named_selections_list",
+                        dataptr = arma,
+                        propname = "namedSelection",
+                        active_dataptr = arma,
+                        active_propname="namedSelectionIndex",
+                        list_id="ATBX_namedSelections");
+        col = row.column(align=True)
+        col.operator("armatoolbox.add_named_selection", icon="ADD")
+        col.operator("armatoolbox.sub_named_selection", icon="REMOVE")
+        col.menu("ATBX_MT_named_selection_menu", icon='DOWNARROW_HLT', text="")
+
+        if arma.namedSelectionIndex > -1 and arma.namedSelection.__len__() >= arma.namedSelectionIndex and arma.namedSelectionIndex != arma.previousSelectionIndex:
+            prname = arma.namedSelection[arma.namedSelectionIndex].name
+            try:
+                grp = obj.vertex_groups[prname]
+            except:
+                pass
+            else:
+                obj.vertex_groups.active = grp
+                arma.previousSelectionIndex = arma.namedSelectionIndex
+
+        if arma.namedSelectionIndex > -1 and arma.namedSelection.__len__() >= arma.namedSelectionIndex:
+            col.separator()
+            col.operator("armatoolbox.named_selection_move",
+                         icon='TRIA_UP', text="").direction = 'UP'
+            col.operator("armatoolbox.named_selection_move",
+                         icon='TRIA_DOWN', text="").direction = 'DOWN'
+
+        if (
+            arma.namedSelectionIndex > -1 and arma.namedSelection.__len__() > 0
+            and obj.mode == 'EDIT'
+        ):
+            row = layout.row()
+            row.label(text = "Placeholder")
+
+
+class ATBX_PT_named_properties_panel(bpy.types.Panel):
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "Arma 3"
+    bl_label = "Named Properties"
+    #bl_parent_id = "ATBX_PT_properties_pane"
+    # bl_options = {'DEFAULT_CLOSED'}
+
+    @classmethod
+    def poll(cls, context):
+        ## Visible when there is a selected object, it is a mesh
+        obj = context.active_object
+
+        return (obj
+                and obj.select_get() == True
+                and obj.armaObjProps != None
+                and obj.armaObjProps.isArmaObject == True
+                and obj.type == "MESH")
+
+    def draw(self, context):
+        obj = context.active_object
+        arma = obj.armaObjProps
+        layout = self.layout
+        row = layout.row()
+        #--- Named Props
+        row = layout.row()
+        row.template_list(listtype_name="ATBX_UL_named_prop_list",
+                            dataptr=arma,
+                            propname="namedProps",
+                            active_dataptr=arma,
+                            active_propname="namedPropIndex",
+                            list_id="ATBX_namedProps")
+        col = row.column(align=True)
+        col.operator("armatoolbox.add_prop", icon="ADD")
+        col.operator("armatoolbox.rem_prop", icon="REMOVE")
+        col.menu("ATBX_MT_named_properties_menu", icon='DOWNARROW_HLT', text="");
+
+        if arma.namedPropIndex > -1 and arma.namedProps.__len__() > arma.namedPropIndex:
+            nprop = arma.namedProps[arma.namedPropIndex]
+            box = layout.box()
+            #row = box.row()
+            #row.prop(nprop, "name", text="Name")
+            row = box.row()
+            row.prop(nprop, "value", text="Value")
+        else:
+            box = layout.box()
+            #row = box.row()
+            #row.label(text="Name")
+            row = box.row()
+            row.label(text="Value")
+
+
+class ATBX_PT_zbias_panel(bpy.types.Panel):
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_label = "Z Bias"
+    bl_category = "Arma 3 Tools"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        obj = context.active_object
+        guiProps = context.window_manager.armaGUIProps
+        layout = self.layout
+        row = layout.row()
+
+        row.prop(guiProps, "zbias_level", text="Z Biased")
+
+        row = layout.row()
+        row.operator("armatoolbox.set_zbias",
+                     text="Set Z Bias")
+        row = layout.row()
+        row.operator("armatoolbox.select_zbiased",
+                     text="Select ZBiased")
 
 panel_classes = (
     ATBX_PT_properties_panel,
+    #ATBX_PT_named_selection_panel,
+    ATBX_PT_named_properties_panel,
     ATBX_PT_proxy_panel,
     ATBX_PT_material_settings_panel,
     ATBX_PT_weight_tool_panel,
@@ -723,7 +1013,13 @@ panel_classes = (
     ATBX_PT_selection_maker,
     ATBX_PT_mass_tools_panel,
     ATBX_PT_uv_tools,
-    ATBX_PT_transparency_panel
+    ATBX_PT_transparency_panel,
+    ATBX_PT_export_configs_panel,
+    ATBX_PT_export_config_object_panel,
+    ATBX_PT_vgroup_maker_panel,
+    ATBX_PT_export_configs_batch_panel,
+    ATBX_PT_zbias_panel,
+
 #    ATBX_PT_model_cfg_panel
 )
 

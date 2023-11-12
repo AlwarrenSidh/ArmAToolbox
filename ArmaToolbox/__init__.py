@@ -29,7 +29,7 @@ from subprocess import call
 from time import sleep
 from traceback import print_tb
 from ArmaTools import *
-from MDLexporter import exportMDL
+import MDLexporter
 from RVMatTools import rt_CopyRVMat, mt_RelocateMaterial, mt_getMaterialInfo
 import tempfile
 #import winreg 
@@ -40,7 +40,8 @@ import os.path as Path
 import ArmaTools
 
 from bpy.types import AddonPreferences
-
+import BatchMDLExport 
+from panels import createToggleBox
 
 
 class ArmaToolboxPreferences(AddonPreferences):
@@ -109,7 +110,10 @@ def getMassForSelection(obj, selectionName):
             bm = bmesh.new()
             bm.from_mesh(obj.data)
             bm.verts.ensure_lookup_table()
-            weight_layer = bm.verts.layers.float['FHQWeights']
+            try:
+                weight_layer = bm.verts.layers.float['FHQWeights']
+            except:
+                weight_layer = bm.verts.layers.float.new('FHQWeights')
     
             for v in obj.data.vertices:
                 grps = v.groups
@@ -126,10 +130,36 @@ def vgroupExtra(self, context):
     obj = context.object
     arma = obj.armaObjProps
     actGrp = obj.vertex_groups.active_index
+    guiProps = context.window_manager.armaGUIProps
+
+    # Search and Replace
+    row = layout.row()
+    box = createToggleBox(context, row, "vgrpRename_open",
+                          "VGroup Find and Replace", "armatoolbox.batch_rename_vgrp")
+    if guiProps.vgrpRename_open:
+        row = box.row()
+        row.prop(guiProps, "vgrpRename_from", text="Find")
+        row = box.row()
+        row.prop(guiProps, "vgrpRename_to", text="Replace")
+
+    # Batch Operation
+    row = layout.row()
+    box = createToggleBox(context, row, "vgrpB_open",
+                          "VGroup Batch Operation", "armatoolbox.match_vgrp")
+    if guiProps.vgrpB_open:
+        row = box.row()
+        row.prop(guiProps, "vgrpB_match", text="Match Pattern")
+        row = box.row()
+        row.prop(guiProps, "vgrpB_operator", text="Operator")
+        row = box.row()
+        row.prop(guiProps, "vgrpB_operation", text="Perform")
+
+    layout.separator()
+
     if obj.mode == 'EDIT':
         row = layout.row()
         row.operator("armatoolbox.vgroup_redefine")
-    if arma.isArmaObject and (arma.lod == '1.000e+13' or arma.lod == '4.000e+13'):
+    if arma.isArmaObject and (arma.lod == '1.000e+13' or arma.lod == '4.000e+13' or arma.lod == '6.000e+15'):
         if actGrp>=0:
             row = layout.row()
             row.label(text = "ARMA group weight {:6.2f}".format(getMassForSelection(obj, obj.vertex_groups[actGrp].name)))
@@ -137,6 +167,8 @@ def vgroupExtra(self, context):
     if arma.isArmaObject and (arma.lod == '1.000e+13' or arma.lod == '4.000e+13' or arma.lod == '7.000e+15'):
         row = layout.row()
         row.operator("armatoolbox.create_components")
+        row = layout.row()
+        row.operator("armatoolbox.renumber_components")
             # TODO:
             # - Need a way to edit this. Possibility is to either extend vertex groups by Arma
             #   weight attribute, or use a global attribute like in some of the arma tools.
@@ -162,6 +194,7 @@ class ATBX_OT_rtm_export(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
     bl_idname = "armatoolbox.export_rtm"
     bl_label = "Export as RTM"
     bl_description = "Export an Arma 2/3 RTM Animation file"
+    bl_options = {'PRESET'}
     
     filename_ext = ".rtm"
     filter_glob : bpy.props.StringProperty(
@@ -211,73 +244,11 @@ class ATBX_OT_rtm_export(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
 ##   Export Operator
 #
         
-class ATBX_OT_p3d_export(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
-    bl_idname="armatoolbox.export_p3d"
-    bl_label = "Export as P3D"
-    bl_description = "Export as P3D"
-    
-    filter_glob : bpy.props.StringProperty(
-        default="*.p3d",
-        options={'HIDDEN'})
-    
-    selectionOnly : bpy.props.BoolProperty(
-       name = "Selection Only", 
-       description = "Export selected objects only", 
-       default = False)
-
-    applyModifiers : bpy.props.BoolProperty(
-        name="Apply Modifies",
-        description="Apply modifiers before export (experimental)",
-        default = True)
-
-    mergeSameLOD: bpy.props.BoolProperty(
-        name="Merge Same LODs",
-        description="Merge objects with the same LOD in exported file (experimental)",
-        default= True)
-
-    filename_ext = ".p3d"
-    
-    def execute(self, context):
-        if context.view_layer.objects.active == None:
-            context.view_layer.objects.active = bpy.data.objects[0]
-
-        #try:
-        # Open the file and export 
-        filePtr = open(self.filepath, "wb")
-        exportMDL(self, filePtr, self.selectionOnly,
-                  self.applyModifiers, self.mergeSameLOD)
-        filePtr.close()
-        
-        # Write a temporary O2script file for this
-        filePtr = tempfile.NamedTemporaryFile("w", delete=False)
-        tmpName = filePtr.name
-        filePtr.write("p3d = newLodObject;\n")
-        filePtr.write('_res = p3d loadP3D "%s";\n' % (self.filepath))
-        filePtr.write("_res = p3d setActive 4e13;")
-        filePtr.write('save p3d;\n')
-        filePtr.close()
-        
-        # Run O2Script to output the P3D
-        #command = os.path.join(context.window_manager.armatoolbox.o2path, "O2Script.exe")
-        user_preferences = context.preferences
-        addon_prefs = user_preferences.addons[__name__].preferences
-        command = addon_prefs.o2ScriptProp
-        command = '"' + command +'" "' + tmpName + '"'
-        #print("command (before abspath) = " + command)
-        #command = os.path.abspath(command)
-        print("command = " + command)
-        call (command, shell=True)
-        os.remove(tmpName)
-        #except Exception as e:
-        #    self.report({'WARNING', 'INFO'}, "I/O error: {0}".format(e))
-            
-        return{'FINISHED'}
-        
-        
 class ATBX_OT_asc_export(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
     bl_idname="armatoolbox.ascexport"
     bl_label = "Export as ASC"
     bl_description = "Export as ASC"
+    bl_options = {'PRESET'}
     
     filter_glob : bpy.props.StringProperty(
         default="*.p3d",
@@ -309,6 +280,7 @@ class ATBX_OT_p3d_import(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
     bl_idname="armatoolbox.import_p3d"
     bl_label = "Import P3D"
     bl_description = "Import P3D"
+    bl_options = {'PRESET'}
     
     filter_glob : bpy.props.StringProperty(
         default="*.p3d",
@@ -335,6 +307,8 @@ class ATBX_OT_p3d_import(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
             self.report({'WARNING', 'INFO'}, "I/O error: Wrong MDL version")
         if error == -2:
             self.report({'WARNING', 'INFO'}, "I/O error: Exception while reading")
+        if error == -3:
+            self.report({'WARNING', 'INFO'}, "I/O Error: Won't load binarized files")
 
         return{'FINISHED'}
 
@@ -343,6 +317,7 @@ class ATBX_OT_asc_import(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
     bl_idname="armatoolbox.importasc"
     bl_label = "Import ASC"
     bl_description = "Import ASC"
+    bl_options = {'PRESET'}
     
     filter_glob : bpy.props.StringProperty(
         default="*.asc",
@@ -368,7 +343,7 @@ class ATBX_OT_asc_import(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
         return{'FINISHED'}
         
 def ArmaToolboxExportMenuFunc(self, context):
-    self.layout.operator(ATBX_OT_p3d_export.bl_idname, text="Arma 3 P3D (.p3d)")
+    self.layout.operator(MDLexporter.ATBX_OT_p3d_export.bl_idname, text="Arma 3 P3D (.p3d)")
 
 def ArmaToolboxImportMenuFunc(self, context):
     self.layout.operator(ATBX_OT_p3d_import.bl_idname, text="Arma 3 P3D (.p3d)")
@@ -378,6 +353,9 @@ def ArmaToolboxImportASCMenuFunc(self, context):
 
 def ArmaToolboxExportASCMenuFunc(self, context):
     self.layout.operator(ATBX_OT_asc_export.bl_idname, text="Arma 3 ASC DEM File (.asc)")
+
+def ArmaToolboxExportBatchMenuFunc(self, context):
+    self.layout.operator(BatchMDLExport.ATBX_OT_p3d_batch_export.bl_idname, text="Arma 3 P3D Batch Export (.p3d)")
 
 '''def addProxy():
     verts = [(0,0,0),
@@ -549,25 +527,52 @@ def load_handler(dummy):
     fixMassLods()
     
     # Fix Shadows
-    objects = getLodsToFix()       
-    if len(objects) > 0:
-        bpy.ops.armaToolbox.fixshadows('INVOKE_DEFAULT')
-            
+    #objects = getLodsToFix()       
+    #if len(objects) > 0:
+    #    bpy.ops.armaToolbox.fixshadows('INVOKE_DEFAULT')
+
+
+class ImportP3D(bpy.types.Operator, ImportHelper):
+    """Load a P3D file"""
+    bl_idname = "import_scene.p3d"
+    bl_label = "Import P3D"
+    bl_options = {'UNDO', 'PRESET'}
+
+
+    files: bpy.props.CollectionProperty(
+        name="File Path",
+        type=bpy.types.OperatorFileListElement,
+    )
+
+    def execute(self, context):
+        if self.files:
+            ret = {'CANCELLED'}
+            dirname = os.path.dirname(self.filepath)
+            for file in self.files:
+                path = os.path.join(dirname, file.name)
+                if importMDL(context, path, True) == 0:
+                    ret = {'FINISHED'}
+            return ret
+        else:
+            if importMDL(context,self.filepath, True) == 0:
+                ret = {'FINISHED'}
+            return ret
+        
 ###
 ##  Registration
 #     
 
 classes = (
     ArmaToolboxPreferences,
+    ImportP3D,
     ATBX_OT_p3d_import,
-    ATBX_OT_p3d_export,
     ATBX_OT_asc_import,
     ATBX_OT_asc_export,
     ATBX_OT_rtm_export
 )
 
 def register():
-    print ("Arma Toolbox registering")
+    print (__name__ + " registering")
     from bpy.utils import register_class
     
     print("Internal classes...")
@@ -583,6 +588,10 @@ def register():
     print("operators")
     operators.register()
 
+    from . import menus
+    print("menus")
+    menus.register()
+
     from . import panels
     print("panels")
     panels.register()
@@ -591,8 +600,14 @@ def register():
     print("lists")
     lists.register()
 
+
+
+    BatchMDLExport.register()
+    MDLexporter.register()
+
     bpy.types.TOPBAR_MT_file_export.append(ArmaToolboxExportMenuFunc)
     bpy.types.TOPBAR_MT_file_import.append(ArmaToolboxImportMenuFunc)
+    bpy.types.TOPBAR_MT_file_export.append(ArmaToolboxExportBatchMenuFunc)
     bpy.types.TOPBAR_MT_file_import.append(ArmaToolboxImportASCMenuFunc)
     bpy.types.TOPBAR_MT_file_export.append(ArmaToolboxExportASCMenuFunc)
     #bpy.types.INFO_MT_mesh_add.append(ArmaToolboxAddProxyMenuFunc)
@@ -612,6 +627,7 @@ def unregister():
 
     bpy.types.TOPBAR_MT_file_export.remove(ArmaToolboxExportMenuFunc)
     bpy.types.TOPBAR_MT_file_import.remove(ArmaToolboxImportMenuFunc)
+    bpy.types.TOPBAR_MT_file_export.remove(ArmaToolboxExportBatchMenuFunc)
     bpy.types.TOPBAR_MT_file_import.remove(ArmaToolboxImportASCMenuFunc)
     bpy.types.TOPBAR_MT_file_export.remove(ArmaToolboxExportASCMenuFunc)
     #bpy.utils.unregister_class(ArmaToolboxAddNewProxy)
@@ -621,8 +637,12 @@ def unregister():
     from bpy.utils import unregister_class
     from . import properties,panels,lists,operators
 
+    BatchMDLExport.unregister()
+    MDLexporter.unregister()
+
     lists.unregister()
     panels.unregister()
+    menus.unregister()
     operators.unregister()
     properties.unregister()
     for cls in reversed(classes):

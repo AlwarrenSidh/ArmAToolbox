@@ -9,7 +9,7 @@ from bpy.props import (
     PointerProperty,
     StringProperty,
 )
-
+from NamedSelections import NamSel_UpdateName
 
 
 lodPresets=[
@@ -92,6 +92,23 @@ class ArmaToolboxNamedProperty(bpy.types.PropertyGroup):
     value : bpy.props.StringProperty(name="Value",
         description="Property Value") 
 
+class ArmaToolboxNamedSelection(bpy.types.PropertyGroup):
+
+    def get_name(self):
+        return self.get("name", "Named Selection")
+
+    def set_name(self, value):
+        oldname = self.get("name")
+        newname = NamSel_UpdateName(bpy.context.active_object, oldname, value)
+        if newname == None: # UpdateName didn't change the name
+            newname = value
+        self["name"] = newname
+
+    name: bpy.props.StringProperty(name="Name",
+                                   description="Selection Name",
+                                   set = set_name,
+                                   get = get_name)
+
 class ArmaToolboxKeyframeProperty(bpy.types.PropertyGroup):
     timeIndex : bpy.props.IntProperty(name="Frame Index",
         description="Frame Index for keyframe")
@@ -101,7 +118,6 @@ class ArmaToolboxComponentProperty(bpy.types.PropertyGroup):
     weight : bpy.props.FloatProperty(name="weight", description="Weight of Component", default = 0.0)
 
 # Would have preferred to have that in ArmaProxy, but apparently that doesn't work.
-# Seriously, can I have JAVA plugins for Blender? Please? Python is shit.
 class ArmaToolboxProxyProperty(bpy.types.PropertyGroup):
     open   : bpy.props.BoolProperty(name="open", description="Show proxy data in GUI", default=False)
     name   : bpy.props.StringProperty(name="name", description="Proxy name")
@@ -129,6 +145,11 @@ class ArmaToolboxHeightfieldProperties(bpy.types.PropertyGroup):
         name="NODATA value",
         description = "Value for Heightfield holes",
         default=-9999)
+
+
+class ArmaToolboxExportConfigObjectProperty(bpy.types.PropertyGroup):
+    name: bpy.props.StringProperty(name="name", description="Export Configs")
+
 
 class ArmaToolboxProperties(bpy.types.PropertyGroup):
     isArmaObject : bpy.props.BoolProperty(
@@ -179,7 +200,21 @@ class ArmaToolboxProperties(bpy.types.PropertyGroup):
         description="Output file for model.cfg inclusion", 
         subtype="FILE_PATH", 
         default="")
+
+    # Export configs
+    exportConfigs : bpy.props.CollectionProperty(type = ArmaToolboxExportConfigObjectProperty, description = "Export Configs")
+    configIndex: bpy.props.IntProperty("configIndex", default=-1)
+    alwaysExport : bpy.props.BoolProperty(name = "alwaysExport", default=False, description="If True, include this in all exports on a batch export")
     
+    # Named Selections
+    namedSelection : bpy.props.CollectionProperty(type = ArmaToolboxNamedSelection,
+          description="Named Selection")
+    namedSelectionIndex : bpy.props.IntProperty("namedSelectionIndex", default = -1)
+    previousSelectionIndex: bpy.props.IntProperty(
+        "previousSelectionIndex", default=-1)
+    previousVertexGroupIndex: bpy.props.IntProperty(
+        "previousVertexGroupIndex", default=-1
+    )
 
     
 class ArmaToolboxMaterialProperties(bpy.types.PropertyGroup):
@@ -216,6 +251,15 @@ class ArmaToolboxMaterialProperties(bpy.types.PropertyGroup):
 
 class ArmaToolboxRenamableProperty(bpy.types.PropertyGroup):
     renamable : bpy.props.StringProperty(name="Texture Path")
+
+
+def bex_add_defined_export_configs(self, context):
+    items = []
+    scene = context.scene
+    for item in scene.armaExportConfigs.exportConfigs.values():
+        items.append((item.name, item.name, ""))
+
+    return items
 
 class ArmaToolboxGUIProps(bpy.types.PropertyGroup):
     framePanelOpen : bpy.props.BoolProperty(name="Open Frames Settings Panel",
@@ -298,11 +342,94 @@ class ArmaToolboxGUIProps(bpy.types.PropertyGroup):
     # UV Island angle
     uvIslandAngle : bpy.props.FloatProperty("maxUVAngle", description="Maximum angle for UV island stretch", default = 5)
 
+    # VGroup Maker/Extender
+    vgr_deselect_all: bpy.props.EnumProperty(name="deselect_all",
+        items={
+            ('nothing"', 'Nothing', "Do Nothing"),
+            ('deselect', 'Deselect', "Deselect"),
+            ('hide', 'Hide', "Hide")
+        })
+    vgr_vgroup_name: bpy.props.StringProperty(name="vgroup_name", default="grp_%d")
+    vgr_vgroup_num: bpy.props.IntProperty(name="vgroup_num", default=1)
+    vgr_vgroup_base: bpy.props.IntProperty(name="vgroup_base", default = 1);
+    vgr_vgroup_baseEnable: bpy.props.BoolProperty(name = "vgroup_baseEnable", default = False);
+
+    # Batch Operation on Configs
+    bex_exportConfigs: bpy.props.CollectionProperty(
+        type=ArmaToolboxExportConfigObjectProperty, description="Export Configs")
+    bex_configIndex: bpy.props.IntProperty("configIndex", default=-1)
+
+    bex_config: bpy.props.EnumProperty(
+        name="Export",
+        description="What to export",
+        items=bex_add_defined_export_configs,
+        default=0
+    )
+
+    bex_choice: bpy.props.EnumProperty(
+        name = "Choice",
+        description="All or any",
+        items = {
+            ('all', 'All of these (maybe more)', 'All of these'),
+            ('any', 'Any of these', 'Any of these'),
+            ('exact', 'Exact match', 'Exact match')
+        }
+    )
+
+    bex_applyAll : bpy.props.BoolProperty(
+        name = "ApplyAll",
+        default = False,
+        description = "Apply to All"
+    )
+
+    # Transparency level
+    trlevel_level: bpy.props.IntProperty(
+        name = "Transparency Priority",
+        description = "Priority for transparency sorting. Lower numbers appear closer to the observer's eye.",
+        min = 0,
+        max = 5
+    )
+
+    # ZBias
+    zbias_level: bpy.props.BoolProperty(
+        name = "ZBias",
+        description = "ZBias of a face. True means the face has ZBias",
+        default = True
+    );
+
+    # VGroup Rename
+    vgrpRename_from : bpy.props.StringProperty(name="vgrpRename_from", default="")
+    vgrpRename_to   : bpy.props.StringProperty(name="vgrpRename_to", default = "")
+    vgrpRename_open : bpy.props.BoolProperty(name="vgrpRename_open", default = False)
+
+    # VGroup Batch ops
+    vgrpB_match : bpy.props.StringProperty(name="vgrpB_match", default=".*")
+    vgrpB_operator : bpy.props.StringProperty(name="vgrpB_operator", default="")
+    vgrpB_operation : bpy.props.EnumProperty(
+        name="Operation",
+        description="What to do",
+        items={
+            ('append', 'Append operator to matching group', 'Append'),
+            ('prefix', 'Prefix operator to matching group', 'Prefix')
+        }
+    )
+    vgrpB_open : bpy.props.BoolProperty(name="vgrpB_open", default = False)
+
+
 class ArmaToolboxCopyHelper(bpy.types.PropertyGroup):
     name : bpy.props.StringProperty(name="name", 
-        description = "Object Name")
+        description = "Name")
     doCopy : bpy.props.BoolProperty(name="doCopy",
-        description="Do copy Value") 
+        description="Do copy Value")
+    index : bpy.props.IntProperty(name="index", description="Index")
+
+class ArmaToolboxExportConfigEntryProperty(bpy.types.PropertyGroup):
+    name : bpy.props.StringProperty(name="name", description = "Configuration Name")
+    fileName : bpy.props.StringProperty(name="fileName", description = "Export File Name", subtype="FILE_NAME")
+    originObject : bpy.props.PointerProperty(type=bpy.types.Object, name="originObject", description = "Optional center reference")
+
+class ArmaToolboxExportConfigsProperty(bpy.types.PropertyGroup):
+    exportConfigs: bpy.props.CollectionProperty(type = ArmaToolboxExportConfigEntryProperty, description = "Export Configs")
 
 def addCustomProperties():
     try:
@@ -337,16 +464,35 @@ def addCustomProperties():
             type = ArmaToolboxGUIProps,
             description="Arma Toolbox GUI settings")
 
+    try:
+        if bpy.types.Scene.armaExportConfigs:
+            pass
+    except:
+        bpy.types.Scene.armaExportConfigs = bpy.props.PointerProperty(
+            type=ArmaToolboxExportConfigsProperty,
+            description = "Export Config List"
+        )
+
+    try:
+        if bpy.types.WindowManager.armaActiveExportConfig:
+            pass
+    except:
+        bpy.types.WindowManager.armaActiveExportConfig = IntProperty(
+            name = "armaActiveExportConfig",
+            default = -1
+        )
+
 class ArmaToolboxFixShadowsHelper(bpy.types.PropertyGroup):
     name : bpy.props.StringProperty(name="name", 
         description = "Object Name")
     fixThis : bpy.props.BoolProperty(name="fixThis",
         description="Fix") 
 
-
 prpclasses = (
+    ArmaToolboxExportConfigObjectProperty,
     ArmaToolboxCopyHelper,
     ArmaToolboxNamedProperty,
+    ArmaToolboxNamedSelection,
     ArmaToolboxKeyframeProperty,
     ArmaToolboxComponentProperty,
     ArmaToolboxProxyProperty,
@@ -355,7 +501,9 @@ prpclasses = (
     ArmaToolboxMaterialProperties,
     ArmaToolboxRenamableProperty,
     ArmaToolboxGUIProps,
-    ArmaToolboxFixShadowsHelper,
+    ArmaToolboxFixShadowsHelper, 
+    ArmaToolboxExportConfigEntryProperty,
+    ArmaToolboxExportConfigsProperty,
     
 )
 
