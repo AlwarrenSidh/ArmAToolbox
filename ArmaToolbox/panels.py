@@ -11,16 +11,6 @@ class ATBX_PT_properties_panel(bpy.types.Panel):
     bl_region_type = "UI"
     bl_category = "Arma 3"
     bl_label = "Arma Object Properties"
-    #bl_options = {'DEFAULT_CLOSED'}
-    
-    #@classmethod
-    #def poll(cls, context):
-        ## Visible when there is a selected object, it is a mesh
-    #    obj = context.active_object
-    #   
-    #    return (obj 
-    #        and obj.select_get() == True
-    #        and (obj.type == "MESH" or obj.type == "ARMATURE") )
 
     def draw_header(self, context):
         obj = context.active_object
@@ -38,11 +28,6 @@ class ATBX_PT_properties_panel(bpy.types.Panel):
             arma = obj.armaObjProps
             layout.active = arma.isArmaObject
             if obj.type == "MESH":
-                #--- Add a button to enable this object for Arma
-                #if (arma.isArmaObject == False):
-                #    row = layout.row();
-                #    row.operator("armatoolbox.enable", text="Make Arma Object")
-                #else:
                 #--- The LOD selection
                 row = layout.row()
                 if ArmaTools.NeedsResolution(arma.lod):
@@ -112,6 +97,49 @@ class ATBX_PT_properties_panel(bpy.types.Panel):
                 row.prop_search(arma, "centerBone", obj.data, "bones",  text="")
         else:
             layout.label(text = "Selection not applicable")
+
+class ATBX_PT_mesh_collector_panel(bpy.types.Panel):
+    bl_idname = "ATBX_PT_mesh_collector_panel"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "Arma 3"
+    bl_label = "Mesh Collector"
+
+    def draw_header(self, context):
+        obj = context.active_object
+        if obj != None:
+            arma = obj.armaObjProps
+            self.layout.prop(arma, "isMeshCollector", text="")
+            
+    def draw(self, context):
+        obj = context.active_object
+        layout = self.layout
+       
+        if obj is not None:
+            self.enable = obj.select_get()
+            arma = obj.armaObjProps
+            layout.active = arma.isMeshCollector
+            if (not arma.isMeshCollector):
+                layout.label(text = "No mesh collector")
+            else:
+                obj = context.active_object
+                arma = obj.armaObjProps
+                layout = self.layout       
+                row = layout.row()
+
+                row = layout.row()
+                row.template_list(listtype_name="ATBX_UL_collected_meshes_list",
+                            dataptr = arma,
+                            propname = "collectedMeshes",
+                            active_dataptr = arma,
+                            active_propname="collectedMeshesIndex",
+                            list_id="ATBX_collectedMeshes")
+                col = row.column(align=True)
+                col.operator("armatoolbox.add_selected_meshes", text="", icon="ADD")
+                col.operator("armatoolbox.rem_selected_meshes", text="", icon="REMOVE")
+                col.menu("ATBX_MT_mesh_collector_menu", icon='DOWNARROW_HLT', text="");
+        else:
+            self.enable = False    
 
 class ATBX_PT_proxy_panel(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
@@ -775,6 +803,7 @@ class ATBX_PT_export_configs_batch_panel(bpy.types.Panel):
         row = layout.row()
         row.operator("armatoolbox.apply_config_batch", text="Apply")
 
+
 class ATBX_PT_export_config_object_panel(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -1000,6 +1029,7 @@ class ATBX_PT_zbias_panel(bpy.types.Panel):
 
 panel_classes = (
     ATBX_PT_properties_panel,
+    ATBX_PT_mesh_collector_panel,
     #ATBX_PT_named_selection_panel,
     ATBX_PT_named_properties_panel,
     ATBX_PT_proxy_panel,
@@ -1018,8 +1048,7 @@ panel_classes = (
     ATBX_PT_export_config_object_panel,
     ATBX_PT_vgroup_maker_panel,
     ATBX_PT_export_configs_batch_panel,
-    ATBX_PT_zbias_panel,
-
+    ATBX_PT_zbias_panel
 #    ATBX_PT_model_cfg_panel
 )
 

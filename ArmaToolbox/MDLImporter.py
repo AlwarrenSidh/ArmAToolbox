@@ -525,7 +525,8 @@ def loadLOD(context, filePtr, objectName, materialData, layerFlag, lodnr):
     # be discarded. Don't want that
     #mymesh.validate()
     print("Normal calculation")
-    mymesh.calc_normals()
+    if (4,0,0) < bpy.app.version:
+        mymesh.calc_normals()
     for poly in mymesh.polygons:
         poly.use_smooth = True
 

@@ -106,13 +106,14 @@ def lodKey(obj):
 
 def convertWeight(weight):
     if weight > 1:
-        weight = 1;
+        weight = 1
+    if weight < 0:
+        weight = 0
     value = round(255 - 254 * weight)
     
     if value == 255:
         value = 0
-        
-    #print("weight = ", weight, " value=",value)
+
     return value
 
 def writeByte(filePtr, value):
@@ -578,7 +579,7 @@ def sameLod(objects, index):
     print(obj.name_full, "is same LOD as ", obj2.name_full, "(no resolution)")
     return False
 
-def duplicateObject(obj):
+def duplicateObject(obj, applyModifier = True):
     print("duplicateObject: ", obj.name_full)
     newObj = obj.copy()
     newObj.data = obj.data.copy()
@@ -596,10 +597,37 @@ def duplicateObject(obj):
         # copy those properties
         for prop in properties:
             setattr(mDst, prop, getattr(mSrc, prop))
+    
 
     bpy.context.scene.collection.objects.link(newObj)
+    instantiateMeshCollector(newObj)
 
     return newObj
+
+# Here is how instantiating a mesh collector works
+# We get a copy of the original object
+# a. we copy each and every collected object
+# b. we apply the collected object's modifiers
+# c. we join the object into our object.
+# TODO: d. if desired, delete specified vertex groups.
+def instantiateMeshCollector(master, applyModifiers = True):
+    objs = [x.object for x in master.armaObjProps.collectedMeshes]
+    
+    instances = []
+
+    for o in objs:
+        copied = duplicateObject(o)
+        if applyModifiers:
+            applyModifiersOnObject(copied)
+        instances.append(copied)
+
+    bpy.ops.object.select_all(action='DESELECT')
+    for x in instances:
+        x.select_set(True)
+    
+    master.select_set(True)
+    bpy.context.view_layer.objects.active = master
+    ArmaTools.joinObjectToObject(bpy.context)
 
 
 def exportLodLevelWithModifiers(myself, filePtr, obj, wm, idx, applyModifiers, renumberComponents, applyTransforms, originObject):
@@ -690,7 +718,7 @@ def exportMDL(myself, filePtr, selectedOnly, applyModifiers, mergeSameLOD, renum
 
 def exportObjectListAsMDL(myself, filePtr, applyModifiers, mergeSameLOD, objects, renumberComponents, applyTransforms, originObject):
 
-    print("originObject =", originObject)
+    print("exportObjectListAsMDL: originObject =", originObject)
 
     objects = sorted(objects, key=lodKey)
 
@@ -721,14 +749,20 @@ def exportObjectListAsMDL(myself, filePtr, applyModifiers, mergeSameLOD, objects
 
 
     else:
-       
+        
+        hasMeshCollector = False
+        for ob in objects:
+            if ob.armaObjProps.isMeshCollector:
+                hasMeshCollector = True
+
+        print("has mesh collector: ", hasMeshCollector)
 
         idx = 0
         while  idx < len(objects):
             obj = objects[idx]
             realIndex = idx
             print ("Considering object ", objects[idx].name)
-            if sameLod(objects, idx):
+            if sameLod(objects, idx) or hasMeshCollector:
                 print ("There are objects to merge")
                 # Copy this object and merge all subsequent objects of the same LOD
                 newTmpObj = duplicateObject(obj)

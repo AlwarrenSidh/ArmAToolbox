@@ -1298,6 +1298,132 @@ class ATBX_OT_match_vgrp(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class ATBX_OT_add_selected_meshes(bpy.types.Operator):
+    bl_idname = "armatoolbox.add_selected_meshes"
+    bl_label = "Add selected meshes to active mesh capture list"
+    bl_description ="Add selected meshes to active mesh capture list"
+
+    @classmethod
+    def poll(cls, context):
+        l = len(context.selected_objects)
+        return l>=2 and context.active_object.armaObjProps.isMeshCollector
+    
+    def execute(self, context):
+        objs = context.selected_objects
+        arma = context.active_object.armaObjProps
+        for o in objs:
+            if o != context.active_object and o.type == 'MESH':
+                if o not in [x.object for x in arma.collectedMeshes]:
+                    item = context.active_object.armaObjProps.collectedMeshes.add()
+                    print(item)
+                    item.object = o
+                
+        return {'FINISHED'}
+
+class ATBX_OT_rem_selected_meshes(bpy.types.Operator):
+    bl_idname = "armatoolbox.rem_selected_meshes"
+    bl_label = "Remove Active meshes from active mesh capture list"
+    bl_description ="Remove Active meshes from active mesh capture list"
+
+    @classmethod
+    def poll(cls, context):
+       return context.active_object.armaObjProps.collectedMeshesIndex != -1
+
+    def execute(self, context):
+        obj = context.active_object
+        arma = obj.armaObjProps
+        if arma.collectedMeshesIndex != -1:
+            arma.collectedMeshes.remove(arma.collectedMeshesIndex)
+
+        return {'FINISHED'}
+
+class ATBX_MT_clear_mesh_collector(bpy.types.Operator):
+    bl_idname = "armatoolbox.clear_mesh_collector"
+    bl_label = "Remove all meshes from the list"
+    bl_description = "Remove all meshes from the list"
+
+    def execute(self,context):
+        obj = context.active_object
+        arma = obj.armaObjProps
+        arma.collectedMeshes.clear()
+
+        return {'FINISHED'}
+
+class ATBX_MT_add_same_config_mesh_collector(bpy.types.Operator):
+    bl_idname = "armatoolbox.add_same_config_mesh_collector"
+    bl_label = "Add all objects with the same config combo"
+    bl_description = "Add all objects to this collector that have the exact same combination of configs"
+
+    def execute(self, context):
+        arma = context.active_object.armaObjProps
+        if len(context.selected_objects)>1:
+            cobjs = context.selected_objects
+        else:
+            cobjs = context.view_layer.objects
+            
+        objs = [obj for  obj in cobjs
+                    if obj.type == 'MESH' 
+                    and obj.armaObjProps.isArmaObject
+                    and obj != context.active_object
+                    and ArmaTools.matchAllConfigs(context, context.active_object, obj)]
+            
+        for o in objs:
+            if o != context.active_object and o.type == 'MESH':
+                if o not in [x.object for x in arma.collectedMeshes]:
+                    item = context.active_object.armaObjProps.collectedMeshes.add()
+                    item.object = o
+                
+        return {'FINISHED'}
+
+class ATBX_MT_add_any_config_mesh_collector(bpy.types.Operator):
+    bl_idname = "armatoolbox.add_any_config_mesh_collector"
+    bl_label = "Add all objects with the at least one common config"
+    bl_description = "Add all objects to this collector that have the one or more of the objects configs"
+
+    def execute(self, context):
+        arma = context.active_object.armaObjProps
+        if len(context.selected_objects)>1:
+            cobjs = context.selected_objects
+        else:
+            cobjs = context.view_layer.objects
+            
+        objs = [obj for  obj in cobjs
+                if obj.type == 'MESH' 
+                and obj.armaObjProps.isArmaObject
+                and obj != context.active_object
+                and ArmaTools.matchAnyConfigs(context, context.active_object, obj)]
+        for o in objs:
+            if o != context.active_object and o.type == 'MESH':
+                if o not in [x.object for x in arma.collectedMeshes]:
+                    item = context.active_object.armaObjProps.collectedMeshes.add()
+                    item.object = o
+                
+        return {'FINISHED'}
+
+class ATBX_MT_add_atleast_config_mesh_collector(bpy.types.Operator):
+    bl_idname = "armatoolbox.add_atleast_config_mesh_collector"
+    bl_label = "Add all objects with the at least one common config"
+    bl_description = "Add all objects to this collector that have the one or more of the objects configs"
+
+    def execute(self, context):
+        arma = context.active_object.armaObjProps
+        if len(context.selected_objects)>1:
+            cobjs = context.selected_objects
+        else:
+            cobjs = context.view_layer.objects
+            
+        objs = [obj for  obj in cobjs
+                if obj.type == 'MESH' 
+                and obj.armaObjProps.isArmaObject
+                and obj != context.active_object
+                and ArmaTools.matchAtLeastConfigs(context, context.active_object, obj)]
+        for o in objs:
+            if o != context.active_object and o.type == 'MESH':
+                if o not in [x.object for x in arma.collectedMeshes]:
+                    item = context.active_object.armaObjProps.collectedMeshes.add()
+                    item.object = o
+                
+        return {'FINISHED'}
 
 op_classes = (
     ATBX_OT_add_frame_range,
@@ -1360,7 +1486,13 @@ op_classes = (
     ATBX_OT_set_zbias,
     ATBX_OT_select_zbiased,
     ATBX_OT_batch_rename_vgrp,
-    ATBX_OT_match_vgrp
+    ATBX_OT_match_vgrp,
+    ATBX_OT_add_selected_meshes,
+    ATBX_OT_rem_selected_meshes,
+    ATBX_MT_clear_mesh_collector,
+    ATBX_MT_add_same_config_mesh_collector,
+    ATBX_MT_add_any_config_mesh_collector,
+    ATBX_MT_add_atleast_config_mesh_collector
 )
 
 

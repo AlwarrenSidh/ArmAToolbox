@@ -20,10 +20,20 @@ class ATBX_MT_named_properties_menu(Menu):
         layout = self.layout
         layout.operator("armatoolbox.clear_props", text="Clear all", icon='CANCEL')
 
+class ATBX_MT_mesh_collector_menu(Menu):
+    bl_label = "Mesh Collector"
+
+    def draw(self, context):
+        layout = self.layout
+        layout.operator("armatoolbox.clear_mesh_collector", text="Clear Mesh List", icon='CANCEL')
+        layout.operator("armatoolbox.add_same_config_mesh_collector", text="Add all meshes with the exact same config", icon='ADD')
+        layout.operator("armatoolbox.add_any_config_mesh_collector", text="Add all meshes with one common config", icon='ADD')
+        layout.operator("armatoolbox.add_atleast_config_mesh_collector", text="Add all meshes with at least all common config", icon='ADD')
 
 menu_classes = (
     #ATBX_MT_named_selection_menu,
     ATBX_MT_named_properties_menu,
+    ATBX_MT_mesh_collector_menu
 )
 
 

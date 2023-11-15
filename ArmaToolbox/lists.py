@@ -174,6 +174,25 @@ class ATBX_UL_named_selections_list(bpy.types.UIList):
     #def invoke(self, context, event):
     #    print ("Invoke called")
 
+class ATBX_UL_collected_meshes_list(bpy.types.UIList):
+    # The draw_item function is called for each item of the collection that is visible in the list.
+    #   data is the RNA object containing the collection,
+    #   item is the current drawn item of the collection,
+    #   icon is the "computed" icon for the item (as an integer, because some objects like materials or textures
+    #   have custom icons ID, which are not available as enum items).
+    #   active_data is the RNA object containing the active property for the collection (i.e. integer pointing to the
+    #   active item of the collection).
+    #   active_propname is the name of the active property (use 'getattr(active_data, active_propname)').
+    #   index is index of the current item in the collection.
+
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            o = item.object
+            layout.prop(o, property="name", text="", emboss=False, icon="OBJECT_DATA")
+        elif self.layout_type == 'GRID':
+            layout.alignment = 'CENTER'
+            layout.label(text="", icon="GROUP_VERTEX")
 
 list_classes = (
     ATBX_UL_named_prop_list,
@@ -184,6 +203,7 @@ list_classes = (
     ATBX_UL_export_config_list,
     ATBX_UL_export_config_object_list,
     ATBX_UL_named_selections_list,
+    ATBX_UL_collected_meshes_list,
 )
 
 def safeAddTime(frame, prop):

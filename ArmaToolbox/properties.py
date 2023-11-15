@@ -151,12 +151,23 @@ class ArmaToolboxExportConfigObjectProperty(bpy.types.PropertyGroup):
     name: bpy.props.StringProperty(name="name", description="Export Configs")
 
 
+class ArmaToolboxCollectedMeshesProperty(bpy.types.PropertyGroup):
+    object: bpy.props.PointerProperty(type = bpy.types.Object, name="object",
+                                      description = "Object Name")
+    
 class ArmaToolboxProperties(bpy.types.PropertyGroup):
     isArmaObject : bpy.props.BoolProperty(
         name = "IsArmaObject",
         description = "Is this an ARMA exportable object",
         default = False)
     
+    # Special Object
+    isMeshCollector : bpy.props.BoolProperty(
+        name = "IsMeshCollector",
+        description = "Collect meshes from other objects",
+        default = False
+    )
+
     # Mesh Objects
     lod : bpy.props.EnumProperty(
         name="LOD Type",
@@ -215,6 +226,13 @@ class ArmaToolboxProperties(bpy.types.PropertyGroup):
     previousVertexGroupIndex: bpy.props.IntProperty(
         "previousVertexGroupIndex", default=-1
     )
+
+    # Mesh Collector objects
+    collectedMeshes : bpy.props.CollectionProperty(
+        type = ArmaToolboxCollectedMeshesProperty,
+        description = "Object Capture List")
+    collectedMeshesIndex : bpy.props.IntProperty("collectedMeshesIndex", default = -1)
+
 
     
 class ArmaToolboxMaterialProperties(bpy.types.PropertyGroup):
@@ -490,6 +508,7 @@ class ArmaToolboxFixShadowsHelper(bpy.types.PropertyGroup):
 
 prpclasses = (
     ArmaToolboxExportConfigObjectProperty,
+    ArmaToolboxCollectedMeshesProperty,
     ArmaToolboxCopyHelper,
     ArmaToolboxNamedProperty,
     ArmaToolboxNamedSelection,

@@ -987,3 +987,71 @@ def setFaceFlags(self, context, flags, mask):
             fl = face[fflayer] & ~mask
             face[fflayer] = fl | flags
 
+def matchAllConfigs(context, mainObject, testObject):
+    mainArma = mainObject.armaObjProps
+    testArma = testObject.armaObjProps
+
+    if not testArma.isArmaObject: 
+        return False
+    
+    ## Generate the list of configs to check against
+    ## On always export, use the list of all configs
+    mainConfigs = mainArma.exportConfigs.keys()
+    if mainArma.alwaysExport:
+        mainConfigs = context.scene.armaExportConfigs.exportConfigs.keys()
+    testConfigs = testArma.exportConfigs.keys()
+    if testArma.alwaysExport:
+        testConfigs = context.scene.armaExportConfigs.exportConfigs.keys()
+    configs = context.scene.armaExportConfigs.exportConfigs.keys()
+
+    for c in configs:
+        if c in mainConfigs and c not in testConfigs:
+            return False
+        if c not in mainConfigs and c in testConfigs:
+            return False
+
+    return True
+
+def matchAnyConfigs(context, mainObject, testObject):
+    mainArma = mainObject.armaObjProps
+    testArma = testObject.armaObjProps
+
+    if not testArma.isArmaObject: 
+        return False
+    
+    ## Generate the list of configs to check against
+    ## On always export, use the list of all configs
+    mainConfigs = mainArma.exportConfigs.keys()
+    if mainArma.alwaysExport:
+        mainConfigs = context.scene.armaExportConfigs.exportConfigs.keys()
+    testConfigs = testArma.exportConfigs.keys()
+    if testArma.alwaysExport:
+        testConfigs = context.scene.armaExportConfigs.exportConfigs.keys()
+    
+    for c in mainConfigs:
+        if c in testConfigs:
+            return True
+        
+    return False
+
+def matchAtLeastConfigs(context, mainObject, testObject):
+    mainArma = mainObject.armaObjProps
+    testArma = testObject.armaObjProps
+
+    if not testArma.isArmaObject: 
+        return False
+    
+    ## Generate the list of configs to check against
+    ## On always export, use the list of all configs
+    mainConfigs = mainArma.exportConfigs.keys()
+    if mainArma.alwaysExport:
+        mainConfigs = context.scene.armaExportConfigs.exportConfigs.keys()
+    testConfigs = testArma.exportConfigs.keys()
+    if testArma.alwaysExport:
+        testConfigs = context.scene.armaExportConfigs.exportConfigs.keys()
+    
+    for c in mainConfigs:
+        if c not in testConfigs:
+            return False
+        
+    return True
