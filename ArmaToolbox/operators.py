@@ -279,20 +279,26 @@ class ATBX_OT_copy_proxy(bpy.types.Operator):
 
     def execute(self, context):
         sObj = context.active_object
-        for obj in self.objectArray:
-            if obj.doCopy:
-                enclose = self.encloseInto
-                enclose = enclose.strip()
-                if len(enclose) == 0:
-                    enclose = None
-                
-                CopyProxy(sObj, bpy.data.objects[obj.name], self.copyProxyName, enclose)
+        if len(context.selected_objects) > 1:
+            for obj in context.selected_objects:
+                if obj != context.active_object:
+                    CopyProxy(sObj, bpy.data.objects[obj.name], self.copyProxyName)
+        else:
+            for obj in self.objectArray:
+                if obj.doCopy:
+                    enclose = self.encloseInto
+                    enclose = enclose.strip()
+                    if len(enclose) == 0:
+                        enclose = None
+                    
+                    CopyProxy(sObj, bpy.data.objects[obj.name], self.copyProxyName, enclose)
 
-        self.objectArray.clear()
+            self.objectArray.clear()
         return {"FINISHED"}
    
     def invoke(self, context, event):
-        
+        if len(context.selected_objects) > 1:
+            return self.execute(context)
         for obj in bpy.data.objects.values():
             if obj.armaObjProps.isArmaObject == True and obj != context.active_object:
                 prop = self.objectArray.add()
@@ -303,6 +309,8 @@ class ATBX_OT_copy_proxy(bpy.types.Operator):
         return wm.invoke_props_dialog(self)
     
     def draw(self, context):
+        if len(context.selected_objects) > 1:
+            return
         layout = self.layout
         col = layout.column()
         col.label(text="Copy Proxy!")
