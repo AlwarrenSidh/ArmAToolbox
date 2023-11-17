@@ -186,7 +186,7 @@ class ATBX_PT_proxy_panel(bpy.types.Panel):
                     iconName="GHOST_ENABLED"
                 if name[:5].upper() == "CARGO":
                     iconName="GHOST_ENABLED" 
-                row.label(text = name, icon=iconName)
+                row.label(text = name + "." + str(prox.index), icon=iconName)
             
             
             if prox.open:
