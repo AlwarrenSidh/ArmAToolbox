@@ -172,6 +172,11 @@ class ATBX_OT_p3d_batch_export(bpy.types.Operator): #, ExportHelper):
         return context.scene.armaExportConfigs.exportConfigs.keys().__len__() != 0
 
     def invoke(self, context, event):
+        if len(self.configs) == 0:
+            for item in context.scene.armaExportConfigs.exportConfigs.values():
+                x = self.configs.add()
+                x.name = item.name
+
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
 
