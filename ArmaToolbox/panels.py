@@ -126,7 +126,7 @@ class ATBX_PT_mesh_collector_panel(bpy.types.Panel):
                 arma = obj.armaObjProps
                 layout = self.layout       
                 row = layout.row()
-
+                row.label(text = "Collected Meshes")
                 row = layout.row()
                 row.template_list(listtype_name="ATBX_UL_collected_meshes_list",
                             dataptr = arma,
@@ -137,7 +137,21 @@ class ATBX_PT_mesh_collector_panel(bpy.types.Panel):
                 col = row.column(align=True)
                 col.operator("armatoolbox.add_selected_meshes", text="", icon="ADD")
                 col.operator("armatoolbox.rem_selected_meshes", text="", icon="REMOVE")
-                col.menu("ATBX_MT_mesh_collector_menu", icon='DOWNARROW_HLT', text="");
+                col.menu("ATBX_MT_mesh_collector_menu", icon='DOWNARROW_HLT', text="")
+
+                row = layout.row()
+                row.label(text = "VGroups to delete")
+                row = layout.row()
+                row.template_list(listtype_name="ATBX_UL_deleted_vgroups_list",
+                            dataptr = arma,
+                            propname = "collectedMeshesDelete",
+                            active_dataptr = arma,
+                            active_propname = "collectedMeshesDeleteIndex",
+                            list_id = "ATBX_collectedMeshesDelete")
+                col = row.column(align=True)
+                col.operator("armatoolbox.add_deletion_vgroup", text="", icon="ADD")
+                col.operator("armatoolbox.rem_deletion_vgroup", text="", icon="REMOVE")
+                col.operator("armatoolbox.clear_del_vgroup", text="", icon="TRASH")
         else:
             self.enable = False    
 

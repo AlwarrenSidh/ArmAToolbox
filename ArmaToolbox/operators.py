@@ -1433,6 +1433,48 @@ class ATBX_MT_add_atleast_config_mesh_collector(bpy.types.Operator):
                 
         return {'FINISHED'}
 
+class ATBX_OT_add_del_vgroup(bpy.types.Operator):
+    bl_idname = "armatoolbox.add_deletion_vgroup"
+    bl_label = "Add vgroup to deletion list"
+    bl_description ="Add vgroup to deletion list"
+   
+    def execute(self, context):
+        arma = context.active_object.armaObjProps
+        item = context.active_object.armaObjProps.collectedMeshesDelete.add()
+        item.vname = "<new item>"
+        return {'FINISHED'}
+
+class ATBX_OT_rem_del_vgroup(bpy.types.Operator):
+    bl_idname = "armatoolbox.rem_deletion_vgroup"
+    bl_label = "Remove vgroup from deletion list"
+    bl_description ="Remove vgroup from deletion list"
+
+    @classmethod
+    def poll(cls, context):
+       return context.active_object.armaObjProps.collectedMeshesDeleteIndex != -1
+
+    def execute(self, context):
+        obj = context.active_object
+        arma = obj.armaObjProps
+        if arma.collectedMeshesDeleteIndex != -1:
+            arma.collectedMeshesDelete.remove(arma.collectedMeshesDeleteIndex)
+
+        return {'FINISHED'}
+
+class ATBX_MT_clear_del_vgroup(bpy.types.Operator):
+    bl_idname = "armatoolbox.clear_del_vgroup"
+    bl_label = "Remove all vgroups"
+    bl_description = "Remove all vgroups"
+
+    def execute(self,context):
+        obj = context.active_object
+        arma = obj.armaObjProps
+        arma.collectedMeshesDelete.clear()
+
+        return {'FINISHED'}
+
+
+
 op_classes = (
     ATBX_OT_add_frame_range,
     ATBX_OT_add_key_frame,
@@ -1500,7 +1542,10 @@ op_classes = (
     ATBX_MT_clear_mesh_collector,
     ATBX_MT_add_same_config_mesh_collector,
     ATBX_MT_add_any_config_mesh_collector,
-    ATBX_MT_add_atleast_config_mesh_collector
+    ATBX_MT_add_atleast_config_mesh_collector,
+    ATBX_OT_add_del_vgroup,
+    ATBX_OT_rem_del_vgroup,
+    ATBX_MT_clear_del_vgroup
 )
 
 

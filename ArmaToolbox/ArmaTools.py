@@ -1055,3 +1055,21 @@ def matchAtLeastConfigs(context, mainObject, testObject):
             return False
         
     return True
+
+def deleteVertexGroupList(context, vgrpList):
+    bpy.ops.object.mode_set(mode="OBJECT")
+    bpy.ops.object.mode_set(mode="EDIT")
+
+    o = context.active_object
+    if o is None:
+        print ("No Object Selected")
+        return
+    
+    for v in vgrpList:
+        if o.vertex_groups.get(v) is not None:
+            o.vertex_groups.active = o.vertex_groups[v]
+            bpy.ops.mesh.select_all( action = 'DESELECT' )
+            bpy.ops.object.vertex_group_select()
+            bpy.ops.mesh.delete(type='VERT')
+
+    bpy.ops.object.mode_set(mode="OBJECT")

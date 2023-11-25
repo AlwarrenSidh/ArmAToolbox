@@ -194,6 +194,14 @@ class ATBX_UL_collected_meshes_list(bpy.types.UIList):
             layout.alignment = 'CENTER'
             layout.label(text="", icon="GROUP_VERTEX")
 
+class ATBX_UL_deleted_vgroups_list(bpy.types.UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            layout.prop(item, property="vname", text="", emboss=False, icon="GROUP_VERTEX")
+        elif self.layout_type == 'GRID':
+            layout.alignment = 'CENTER'
+            layout.label(text="", icon="GROUP_VERTEX")  
+
 list_classes = (
     ATBX_UL_named_prop_list,
     ATBX_UL_key_frame_list,
@@ -204,6 +212,7 @@ list_classes = (
     ATBX_UL_export_config_object_list,
     ATBX_UL_named_selections_list,
     ATBX_UL_collected_meshes_list,
+    ATBX_UL_deleted_vgroups_list
 )
 
 def safeAddTime(frame, prop):

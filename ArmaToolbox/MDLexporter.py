@@ -612,7 +612,8 @@ def duplicateObject(obj, applyModifier = True):
 # TODO: d. if desired, delete specified vertex groups.
 def instantiateMeshCollector(master, applyModifiers = True):
     objs = [x.object for x in master.armaObjProps.collectedMeshes]
-    
+    vgrpList = [x.vname for x in master.armaObjProps.collectedMeshesDelete]
+
     instances = []
 
     for o in objs:
@@ -628,6 +629,7 @@ def instantiateMeshCollector(master, applyModifiers = True):
     master.select_set(True)
     bpy.context.view_layer.objects.active = master
     ArmaTools.joinObjectToObject(bpy.context)
+    ArmaTools.deleteVertexGroupList(bpy.context, vgrpList)
 
 
 def exportLodLevelWithModifiers(myself, filePtr, obj, wm, idx, applyModifiers, renumberComponents, applyTransforms, originObject):

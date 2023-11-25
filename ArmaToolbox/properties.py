@@ -154,7 +154,11 @@ class ArmaToolboxExportConfigObjectProperty(bpy.types.PropertyGroup):
 class ArmaToolboxCollectedMeshesProperty(bpy.types.PropertyGroup):
     object: bpy.props.PointerProperty(type = bpy.types.Object, name="object",
                                       description = "Object Name")
-    
+
+
+class ArmaToolboxDeletionListProperty(bpy.types.PropertyGroup):
+    vname: bpy.props.StringProperty(name="vname", description="Group Name")
+
 class ArmaToolboxProperties(bpy.types.PropertyGroup):
     isArmaObject : bpy.props.BoolProperty(
         name = "IsArmaObject",
@@ -232,7 +236,10 @@ class ArmaToolboxProperties(bpy.types.PropertyGroup):
         type = ArmaToolboxCollectedMeshesProperty,
         description = "Object Capture List")
     collectedMeshesIndex : bpy.props.IntProperty("collectedMeshesIndex", default = -1)
-
+    collectedMeshesDelete : bpy.props.CollectionProperty(
+        type = ArmaToolboxDeletionListProperty,
+        description = "Object Capture List")
+    collectedMeshesDeleteIndex : bpy.props.IntProperty("collectedMeshesDeleteIndex", default = -1)
 
     
 class ArmaToolboxMaterialProperties(bpy.types.PropertyGroup):
@@ -507,6 +514,7 @@ class ArmaToolboxFixShadowsHelper(bpy.types.PropertyGroup):
         description="Fix") 
 
 prpclasses = (
+    ArmaToolboxDeletionListProperty,
     ArmaToolboxExportConfigObjectProperty,
     ArmaToolboxCollectedMeshesProperty,
     ArmaToolboxCopyHelper,
@@ -522,8 +530,7 @@ prpclasses = (
     ArmaToolboxGUIProps,
     ArmaToolboxFixShadowsHelper, 
     ArmaToolboxExportConfigEntryProperty,
-    ArmaToolboxExportConfigsProperty,
-    
+    ArmaToolboxExportConfigsProperty
 )
 
 def register():
