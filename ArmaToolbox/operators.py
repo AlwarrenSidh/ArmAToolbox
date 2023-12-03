@@ -570,6 +570,8 @@ class ATBX_OT_join_as_proxy(bpy.types.Operator):
         index = context.window_manager.armaGUIProps.mapProxyIndex
         doDel = context.window_manager.armaGUIProps.mapProxyDelete
         
+        
+
         enclose = context.window_manager.armaGUIProps.mapProxyEnclose
         if len(enclose) == 0:
             enclose = None
@@ -578,6 +580,13 @@ class ATBX_OT_join_as_proxy(bpy.types.Operator):
             if sel == obj:
                 pass
             else:
+                if context.window_manager.armaGUIProps.mapUseNamedSelection:
+                    newPath = ArmaTools.findNamedSelectionString(sel, "proxy")
+                    if newPath is not None:
+                        path = newPath
+                    else:
+                        path = context.window_manager.armaGUIProps.mapProxyObject
+
                 if enclose == None:
                     e = None
                 else:
@@ -590,6 +599,9 @@ class ATBX_OT_join_as_proxy(bpy.types.Operator):
             obj.select_set(False)
             bpy.ops.object.delete();      
         
+        if context.window_manager.armaGUIProps.mapAutoIncrementProxy:
+            context.window_manager.armaGUIProps.mapProxyIndex = index
+
         return {"FINISHED"}   
 
 ###

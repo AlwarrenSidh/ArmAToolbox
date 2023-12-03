@@ -349,6 +349,8 @@ class ArmaToolboxGUIProps(bpy.types.PropertyGroup):
     mapProxyDelete : bpy.props.BoolProperty("mapProxyDelete", description="Delete original", default=True)
     mapProxyEnclose : bpy.props.StringProperty("mapProxyEnclose", description="Enclosed Selection")
     mapOpen : bpy.props.BoolProperty(name="mapOpen", default=False)
+    mapUseNamedSelection : bpy.props.BoolProperty(name="mapUseNamedSelection", default=True)
+    mapAutoIncrementProxy : bpy.props.BoolProperty(name="mapAutoIncrementProxy", default=False)
     
     # Proxy Path Changer
     proxyPathFrom : bpy.props.StringProperty("proxyPathFrom", description="Proxy Path From", subtype = 'FILE_PATH')

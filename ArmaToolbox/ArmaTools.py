@@ -1073,3 +1073,16 @@ def deleteVertexGroupList(context, vgrpList):
             bpy.ops.mesh.delete(type='VERT')
 
     bpy.ops.object.mode_set(mode="OBJECT")
+
+def findNamedSelectionString(obj, selectionName):
+    index = obj.armaObjProps.namedProps.find(selectionName)
+    
+    if index is -1: 
+        return None
+
+    output = obj.armaObjProps.namedProps[selectionName]
+    
+    if len(output.value) is 0:
+        return None
+    
+    return output.value
