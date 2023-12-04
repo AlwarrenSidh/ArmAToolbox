@@ -124,9 +124,13 @@ class ATBX_PT_mesh_collector_panel(bpy.types.Panel):
             else:
                 obj = context.active_object
                 arma = obj.armaObjProps
+                valid = ArmaTools.collectionMeshListValid(context, obj)
                 layout = self.layout       
                 row = layout.row()
-                row.label(text = "Collected Meshes")
+                wicon = 'BLANK1'
+                if valid is False:
+                    wicon = 'ERROR'
+                row.label(text = "Collected Meshes", icon = wicon)
                 row = layout.row()
                 row.template_list(listtype_name="ATBX_UL_collected_meshes_list",
                             dataptr = arma,

@@ -1,4 +1,5 @@
 import bpy
+import ArmaTools
 
 class ATBX_UL_named_prop_list(bpy.types.UIList):
     # The draw_item function is called for each item of the collection that is visible in the list.
@@ -189,7 +190,10 @@ class ATBX_UL_collected_meshes_list(bpy.types.UIList):
         
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             o = item.object
-            layout.prop(o, property="name", text="", emboss=False, icon="OBJECT_DATA")
+            labelIcon = "OBJECT_DATA"
+            if ArmaTools.collectorMeshValid(context, o.name) is False:
+                labelIcon = 'ERROR'
+            layout.prop(o, property="name", text="", emboss=False, icon=labelIcon)
         elif self.layout_type == 'GRID':
             layout.alignment = 'CENTER'
             layout.label(text="", icon="GROUP_VERTEX")

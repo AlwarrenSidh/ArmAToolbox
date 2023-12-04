@@ -1086,3 +1086,18 @@ def findNamedSelectionString(obj, selectionName):
         return None
     
     return output.value
+
+def collectorMeshValid(context, name):
+    if context.scene.objects.get(name) is not None:
+        return True
+    else:
+        return False
+    
+def collectionMeshListValid(context, object):
+    arma = object.armaObjProps
+    for obj in arma.collectedMeshes:
+        name = obj.object.name
+        if collectorMeshValid(context, name) is False:
+            return False
+        
+    return True
