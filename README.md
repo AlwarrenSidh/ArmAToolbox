@@ -13,6 +13,9 @@ This is a collection of Python scripts for the Blender 3D package
 that allows the user to create, import and export unbinarized 
 Arma Engine .p3d files. 
 
+# Before reporting bugs...
+... please read the <a href="https://github.com/AlwarrenSidh/ArmAToolbox/wiki/Frequently-Asked-Questions">FAQ</a>
+
 # License
 License
 This program is free software; you can redistribute it and/or modify 
