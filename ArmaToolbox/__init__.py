@@ -2,7 +2,7 @@ bl_info = {
     "name": "Arma: Toolbox",
     "description": "Collection of tools for editing RV Engine content",
     "author": "Hans-Joerg \"Alwarren\" Frieden.",
-    "version": (4, 0, 0),
+    "version": (4, 0, 5),
     "blender": (3, 0, 0),
     "location": "View3D > Panels",
     "warning": '',
