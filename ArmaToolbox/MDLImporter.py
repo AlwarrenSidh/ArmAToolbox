@@ -56,8 +56,12 @@ def makeLodName(fileName, lodLevel):
     return lodName
 
 def maybeAddEdgeSplit(obj):
-    obj.data.use_auto_smooth = True
-    obj.data.auto_smooth_angle = 3.1415927
+    if (4,1,0) > bpy.app.version:
+        obj.data.use_auto_smooth = True
+        obj.data.auto_smooth_angle = 3.1415927
+    else:
+        pass
+
 
     #modifier = obj.modifiers.get("FHQ_ARMA_Toolbox_EdgeSplit")
     #if modifier is None:
@@ -369,7 +373,7 @@ def loadLOD(context, filePtr, objectName, materialData, layerFlag, lodnr):
                     n1 = readULong(filePtr)
                     n2 = readULong(filePtr)
                     sharpEdges.append([n1, n2])
-                print ("sharp edges", sharpEdges)
+                # print ("sharp edges", sharpEdges)
             elif tagName == "#Property#":
                 # Read named property
                 propName  = struct.unpack("64s", filePtr.read(64))[0].decode("utf-8")
@@ -396,13 +400,18 @@ def loadLOD(context, filePtr, objectName, materialData, layerFlag, lodnr):
                         index += 1
             elif tagName == "#Mass#":
                 weightArray = []
-                weight = 0;
+                weight = 0
                 for idx in range (0,numPoints):
                     f = readFloat(filePtr)
                     weightArray.append(f)
                     weight += f
-            elif tagName[0] == '#':
+            elif tagName.__len__() > 0 and tagName[0] == '#':
+                print("Unkown/Unsued tagg " + tagName)
+                print("Skipping " , numBytes , " bytes in file")
                 # System tag we don't read
+                filePtr.seek(numBytes, 1)
+            elif tagName.__len__() == 0:
+                print ("Unnamed tagg????")
                 filePtr.seek(numBytes, 1)
             else:
                 # Named Selection

@@ -220,6 +220,7 @@ list_classes = (
 )
 
 def safeAddTime(frame, prop):
+    frame = int(frame)
     for k in prop:
         if k.timeIndex == frame:
             return

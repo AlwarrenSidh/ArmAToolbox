@@ -885,7 +885,7 @@ class ATBX_PT_vgroup_maker_panel(bpy.types.Panel):
         ## Visible when there is a selected object, it is a mesh
         obj = context.active_object
 
-        return (obj
+        return (obj != None
                 and obj.select_get() == True
                 and obj.armaObjProps != None
                 and obj.armaObjProps.isArmaObject == True

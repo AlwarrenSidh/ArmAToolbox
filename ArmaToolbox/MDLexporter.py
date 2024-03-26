@@ -150,7 +150,8 @@ def OLDwriteNormals(filePtr, mesh, numberOfNormals):
 # FaceNormals must be inverted (-X, -Y, -Z) for clockwise vertex order (default for DirectX), and not changed for counterclockwise order.
 def writeNormals(filePtr, mesh, numberOfNormals):
     print("faces = ", len(mesh.polygons))
-    mesh.calc_normals_split()
+    if (4,1,0) > bpy.app.version:
+        mesh.calc_normals_split()
     for poly in mesh.polygons:
         #print("index = ", poly.index)
         loops = poly.loop_indices
