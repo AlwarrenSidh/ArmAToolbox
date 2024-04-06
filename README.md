@@ -15,6 +15,7 @@ Arma Engine .p3d files.
 
 # Before reporting bugs...
 ... please read the <a href="https://github.com/AlwarrenSidh/ArmAToolbox/wiki/Frequently-Asked-Questions">FAQ</a>
+Also, "it doesn't work" isn't a bug report. At the very least, mention the version of blender you are using, the version of the toolbox, and any error messages. Due to the way that Blender reports error messages (i.e. not good) you might have missed it. Go to "Windows -> System Console" and check there for any errors.
 
 # License
 License
