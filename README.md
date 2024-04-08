@@ -1,3 +1,6 @@
+# Latest News
+Release 4.0.5 has been updated. If you had trouble installing it, it should work now. Turns out I forgot to add the distribution archive :|
+
 # PayPal
 If you like this project and want to support it, consider a donation
 
