@@ -266,7 +266,7 @@ def rt_SmartCopy(texName, outputName):
         print ("output file exists")
         pass
     else:
-        shutil.copy(texName, outputPath)
+        shutil.copy(texName, outputName)
 
 def rt_CopyTexture(texName, outputPath):
     print("rt_CopyTexture " + texName + "," + outputPath)

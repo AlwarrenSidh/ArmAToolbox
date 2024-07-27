@@ -10,7 +10,7 @@ import struct
 import bpy
 import bmesh
 import os.path as path
-import ArmaToolbox
+# import ArmaToolbox
 from math import sqrt
 
 def vertIdx(x,y,ncols, nrows):

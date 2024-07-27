@@ -10,7 +10,7 @@ import struct
 import bpy
 import bmesh
 import os.path as path
-import ArmaToolbox
+# import ArmaToolbox
 
 def expectKeyword(line, word):
     pair = line.split()

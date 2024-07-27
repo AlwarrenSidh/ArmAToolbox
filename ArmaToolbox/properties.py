@@ -9,8 +9,8 @@ from bpy.props import (
     PointerProperty,
     StringProperty,
 )
-from NamedSelections import NamSel_UpdateName
-
+#from NamedSelections import NamSel_UpdateName
+from . import NamedSelections
 
 lodPresets=[
     ## Graphical LOD

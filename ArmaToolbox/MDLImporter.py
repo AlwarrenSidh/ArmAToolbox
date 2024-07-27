@@ -10,8 +10,8 @@ import struct
 import bpy
 import bmesh
 import os.path as path
-import ArmaToolbox
-import ArmaTools
+
+from . import ArmaTools
 
 def getLayerMask(layer):
     res = [False, False, False, False, False,
@@ -563,7 +563,7 @@ def loadLOD(context, filePtr, objectName, materialData, layerFlag, lodnr):
 
     print("set LOD type")    
     # Set the right LOD type
-    lodPresets = ArmaToolbox.lodPresets
+    lodPresets = ArmaTools.lodPresets
     
     for n in lodPresets:
         if float(n[0]) == resolution:

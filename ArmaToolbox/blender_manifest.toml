@@ -1,0 +1,24 @@
+schema_version = "1.0.0"
+
+id = "ArmaToolbox"
+version = "4.2.0"
+name = "Arma Toolbox for Blender"
+tagline = "This is an import/export toolset for the game Arma 3"
+maintainer = "Hans-Joerg Frieden <hans-joerg@friedenhq.org>"
+website = "https://github.com/AlwarrenSidh/ArmAToolbox"
+type = "add-on"
+
+
+tags = ["Import-Export", "Animation"]
+
+blender_version_min = "4.2.0"
+
+license = [
+  "SPDX:GPL-2.0-or-later",
+]
+
+platforms = ["windows-amd64", "windows-x64"]
+
+[permissions]
+files = "Import/export from/to disk, run post processor binary"
+clipboard = "Copy and paste export configs"

@@ -1,9 +1,11 @@
 import bpy
 import os.path as Path
-import RVMatTools
+from . import (
+    RVMatTools,
+    ArmaTools
+)
 from math import *
 from mathutils import *
-import ArmaTools
 
 class ATBX_PT_properties_panel(bpy.types.Panel):
     bl_idname = "ATBX_PT_properties_panel"

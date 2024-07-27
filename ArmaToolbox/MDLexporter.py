@@ -10,10 +10,10 @@ import os
 import math
 import struct
 import bmesh
-import ArmaTools
-from ArmaTools import RenumberComponents
-from ArmaTools import NeedsResolution
-from properties import lodName
+from . import (
+    ArmaTools,
+    properties
+)
 import os.path as path
 
 
@@ -99,7 +99,7 @@ def getMaterialInfo(face, obj):
 def lodKey(obj):
     if obj.armaObjProps.lod == "-1.0":
         return obj.armaObjProps.lodDistance
-    elif NeedsResolution(obj.armaObjProps.lod):
+    elif ArmaTools.NeedsResolution(obj.armaObjProps.lod):
         return float(obj.armaObjProps.lod) + obj.armaObjProps.lodDistance
     else:
         return float(obj.armaObjProps.lod)
@@ -473,7 +473,7 @@ def export_lod(filePtr, obj, wm, idx):
     if lod < 0:
         lod = -lod
     
-    print("lod = ", lod, lodName(lod), obj.armaObjProps.lodDistance)
+    print("lod = ", lod, properties.lodName(lod), obj.armaObjProps.lodDistance)
 
     #if lod == 1.000e+13 or lod == 4.000e+13:
     #    checkMass(obj, lod, mesh)
@@ -547,7 +547,7 @@ def export_lod(filePtr, obj, wm, idx):
     writeString(filePtr, '#EndOfFile#')
     writeULong(filePtr, 0)
     
-    if NeedsResolution(lod): ## FIXME: Is this correct?
+    if ArmaTools.NeedsResolution(lod): ## FIXME: Is this correct?
         #print("---------->Needs resolution for lod ", format(lod, ".3e"), " results in ", format(FixupResolution(lod, obj.armaObjProps.lodDistance), ".3e"))
         writeFloat(filePtr, FixupResolution(lod,obj.armaObjProps.lodDistance))
     else:
@@ -564,7 +564,7 @@ def sameLod(objects, index):
     #print("sameLOD:     ", obj2.name_full, "/", obj2.armaObjProps.lod, "/", obj2.armaObjProps.lodDistance)
     # Handle Shadows by lod
     #if lodKey(obj) == 1.000e+4 and lodKey(obj2) == 1.000e+4:
-    if NeedsResolution(obj.armaObjProps.lod) and NeedsResolution(obj2.armaObjProps.lod):
+    if ArmaTools.NeedsResolution(obj.armaObjProps.lod) and ArmaTools.NeedsResolution(obj2.armaObjProps.lod):
         if obj.armaObjProps.lodDistance == obj2.armaObjProps.lodDistance and obj.armaObjProps.lod == obj2.armaObjProps.lod:
             #print(obj.name_full, "is same LOD as ", obj2.name_full)
             return True
@@ -692,7 +692,7 @@ def possiblyRenumberComponents(obj):
     obj.select_set(True)
     if obj.armaObjProps.lod in geometryLods:
         print("Renumbering components on " + obj.name)
-        RenumberComponents(obj)
+        ArmaTools.RenumberComponents(obj)
 
 # Export a couple of meshes to a P3D MLOD files    
 def exportMDL(myself, filePtr, selectedOnly, applyModifiers, mergeSameLOD, renumberComponents, applyTransforms):

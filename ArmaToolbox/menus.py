@@ -2,7 +2,7 @@
 
 import bpy
 import os.path as Path
-import ArmaTools
+from . import ArmaTools
 from bpy.types import Menu
 
 class ATBX_MT_named_selection_menu(Menu):

@@ -1,17 +1,26 @@
 import bpy
-from lists import safeAddTime
-from . import properties
-from ArmaProxy import CopyProxy, CreateProxyPosRot, SelectProxy, DeleteProxy
+
+from . import (
+    lists,
+    properties,
+    ArmaProxy,
+    ArmaTools,
+    RVMatTools,
+    BatchMDLExport,
+    NamedSelections
+)
+
+#from lists import safeAddTime
+
+#from ArmaProxy import CopyProxy, CreateProxyPosRot, SelectProxy, DeleteProxy
 import bmesh
-import ArmaTools
-import RVMatTools
 from math import *
 from mathutils import *
-from ArmaToolbox import getLodsToFix
-from BatchMDLExport import ATBX_OT_p3d_batch_export
+from . import getLodsToFix
+#from BatchMDLExport import ATBX_OT_p3d_batch_export
 import os.path as Path
 #from RtmTools import exportModelCfg
-from NamedSelections import *
+# from NamedSelections import *
 import re
 
 class ATBX_OT_add_frame_range(bpy.types.Operator):
@@ -28,7 +37,7 @@ class ATBX_OT_add_frame_range(bpy.types.Operator):
         step = guiProps.framePanelStep
         
         for frame in range(start, end, step):
-            safeAddTime(frame, prp)
+            lists.safeAddTime(frame, prp)
             
         return {"FINISHED"}
         
@@ -41,7 +50,7 @@ class ATBX_OT_add_key_frame(bpy.types.Operator):
         obj = context.active_object
         prp = obj.armaObjProps.keyFrames
         frame = context.scene.frame_current
-        safeAddTime(frame, prp)
+        lists.safeAddTime(frame, prp)
         return {"FINISHED"}
   
 class ATBX_OT_add_all_key_frames(bpy.types.Operator):
@@ -70,7 +79,7 @@ class ATBX_OT_add_all_key_frames(bpy.types.Operator):
         keyframes.sort()
         
         for frame in keyframes:
-            safeAddTime(frame, prp)
+            lists.safeAddTime(frame, prp)
             
         return {"FINISHED"}  
   
@@ -282,7 +291,7 @@ class ATBX_OT_copy_proxy(bpy.types.Operator):
         if len(context.selected_objects) > 1:
             for obj in context.selected_objects:
                 if obj != context.active_object:
-                    CopyProxy(sObj, bpy.data.objects[obj.name], self.copyProxyName)
+                    ArmaProxy.CopyProxy(sObj, bpy.data.objects[obj.name], self.copyProxyName)
         else:
             for obj in self.objectArray:
                 if obj.doCopy:
@@ -291,7 +300,7 @@ class ATBX_OT_copy_proxy(bpy.types.Operator):
                     if len(enclose) == 0:
                         enclose = None
                     
-                    CopyProxy(sObj, bpy.data.objects[obj.name], self.copyProxyName, enclose)
+                    ArmaProxy.CopyProxy(sObj, bpy.data.objects[obj.name], self.copyProxyName, enclose)
 
             self.objectArray.clear()
         return {"FINISHED"}
@@ -389,7 +398,7 @@ class ATBX_OT_select_proxy(bpy.types.Operator):
     
     def execute(self, context):
         sObj = context.active_object
-        SelectProxy(sObj, self.proxyName)
+        ArmaProxy.SelectProxy(sObj, self.proxyName)
         return {"FINISHED"}
 
 ###
@@ -592,7 +601,7 @@ class ATBX_OT_join_as_proxy(bpy.types.Operator):
                 else:
                     e = enclose
                 pos = sel.location - obj.location 
-                CreateProxyPosRot(obj, pos, sel.rotation_euler, path, index, e)
+                ArmaProxy.CreateProxyPosRot(obj, pos, sel.rotation_euler, path, index, e)
                 index = index + 1
         
         if doDel == True:
@@ -1048,7 +1057,7 @@ class ATBX_OT_all_obj_config(bpy.types.Operator):
         obj = context.active_object
         prp = obj.armaObjProps.exportConfigs
         prp.clear()
-        if add_all:
+        if self.add_all:
             for item in context.scene.armaExportConfigs.exportConfigs.values():
                 prp.add(item.name)
     
@@ -1194,7 +1203,7 @@ class ATBX_OT_copy_proxy_to_objects(bpy.types.Operator):
                         except:
                             pass
                         
-                        CopyProxy(obj, single, proxyName, groups)
+                        ArmaProxy.CopyProxy(obj, single, proxyName, groups)
 
         return {'FINISHED'}
 
@@ -1209,7 +1218,7 @@ class ATBX_OT_delete_all_proxies(bpy.types.Operator):
         obj = context.active_object
         while len(obj.armaObjProps.proxyArray) > 0:
             proxy = obj.armaObjProps.proxyArray[0]
-            DeleteProxy(obj, proxy.name)
+            ArmaProxy.DeleteProxy(obj, proxy.name)
 
         return {'FINISHED'}   
 
@@ -1242,7 +1251,7 @@ class ATBX_OT_add_named_selection(bpy.types.Operator):
 
     def execute(self, context):
         obj = context.active_object
-        NamSel_AddNew(obj, name="Named Selection")
+        NamedSelections.NamSel_AddNew(obj, name="Named Selection")
         return {'FINISHED'}
 
 class ATBX_OT_add_remove_selection(bpy.types.Operator):
@@ -1255,7 +1264,7 @@ class ATBX_OT_add_remove_selection(bpy.types.Operator):
         arma = obj.armaObjProps
         if arma.namedSelectionIndex != -1:
             name = arma.namedSelection[arma.namedSelectionIndex].name
-            NamSel_Remove(obj, name=name)
+            NamedSelections.NamSel_Remove(obj, name=name)
             arma.namedSelection.remove(arma.namedSelectionIndex)
         return {'FINISHED'}
         

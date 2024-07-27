@@ -6,7 +6,9 @@ Created on 16.01.2014
 
 import bpy
 import bmesh
-from ArmaProxy import RebaseProxies, GetMaxProxy
+from . import (
+    ArmaProxy
+)
 import tempfile
 from subprocess import call
 import os
@@ -32,7 +34,7 @@ def changeParentIf(origString, fromParent, toParent):
         n = len(fromParent)
         return toParent + origString[n:]
 
-def  bulkReparent(context, frm, t):
+def bulkReparent(context, frm, t):
     mats = bpy.data.materials
             
     for mat in mats:
@@ -659,10 +661,10 @@ def joinObjectToObject(context):
     objsJoin = [obj for obj in context.selected_objects if obj != context.active_object]
 
     for objJoin in objsJoin:
-        newSecondBase = GetMaxProxy(objTarget)
+        newSecondBase = ArmaProxy.GetMaxProxy(objTarget)
         if newSecondBase != -1:
             # Rebase proxies if the current object has any
-            RebaseProxies(objJoin, newSecondBase+1)
+            ArmaProxy.RebaseProxies(objJoin, newSecondBase+1)
 
         for p in objJoin.armaObjProps.proxyArray:
             n = objTarget.armaObjProps.proxyArray.add()
@@ -847,8 +849,9 @@ def RunO2Script(context, fileName):
     filePtr.write('save p3d;\n')
     filePtr.close()
 
-    user_preferences = context.preferences
-    addon_prefs = user_preferences.addons["ArmaToolbox"].preferences
+    #user_preferences = context.preferences
+    #addon_prefs = user_preferences.addons["ArmaToolbox"].preferences
+    addon_prefs = bpy.context.preferences.addons[__package__].preferences
     command = addon_prefs.o2ScriptProp
     command = '"' + command + '" "' + tmpName + '"'
     call(command, shell=True)
@@ -1077,12 +1080,12 @@ def deleteVertexGroupList(context, vgrpList):
 def findNamedSelectionString(obj, selectionName):
     index = obj.armaObjProps.namedProps.find(selectionName)
     
-    if index is -1: 
+    if index == -1: 
         return None
 
     output = obj.armaObjProps.namedProps[selectionName]
     
-    if len(output.value) is 0:
+    if len(output.value) == 0:
         return None
     
     return output.value

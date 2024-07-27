@@ -1,5 +1,5 @@
 import bpy
-import ArmaTools
+from . import ArmaTools
 
 class ATBX_UL_named_prop_list(bpy.types.UIList):
     # The draw_item function is called for each item of the collection that is visible in the list.

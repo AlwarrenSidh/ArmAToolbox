@@ -34,7 +34,6 @@ import struct
 import bpy
 import bmesh
 import os.path as path
-import ArmaToolbox
 import math
 import mathutils
 

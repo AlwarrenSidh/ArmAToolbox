@@ -1,7 +1,11 @@
 import bpy
 from bpy_extras.io_utils import ImportHelper, ExportHelper
-from ArmaTools import GetObjectsByConfig, RunO2Script
-from MDLexporter import exportObjectListAsMDL
+#from ArmaTools import GetObjectsByConfig, RunO2Script
+#from MDLexporter import exportObjectListAsMDL
+from . import (
+    ArmaTools,
+    MDLExporter
+)
 import os.path as path
 import sys
 
@@ -184,19 +188,19 @@ class ATBX_OT_p3d_batch_export(bpy.types.Operator): #, ExportHelper):
         if context.view_layer.objects.active == None:
             context.view_layer.objects.active = context.view_layer.objects[0]
         for item in self.configs:
-            objs = GetObjectsByConfig(item.name)
+            objs = ArmaTools.GetObjectsByConfig(item.name)
             print("Config: " + item.name)
             config = context.scene.armaExportConfigs.exportConfigs[item.name]
             fileName = path.join(self.directory, config.fileName)
             try:
                 filePtr = open(fileName, "wb")
                 context.view_layer.objects.active = objs[0]
-                exportObjectListAsMDL(self, filePtr, self.applyModifiers, True, objs,
+                MDLExporter.exportObjectListAsMDL(self, filePtr, self.applyModifiers, True, objs,
                                       self.renumberComponents, self.applyTransforms, config.originObject)
                 filePtr.close()
-                RunO2Script(context, fileName)
+                ArmaTools.RunO2Script(context, fileName)
             except Exception as inst:
-                str =  "Error writing file " + fileName + " for config " + item.name + ":" + inst.args
+                str =  "Error writing file " + fileName + " for config " + item.name
                 self.report({'ERROR'}, str)
                 return {'CANCELLED'}
         

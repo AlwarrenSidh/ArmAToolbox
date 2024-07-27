@@ -2,8 +2,8 @@ bl_info = {
     "name": "Arma: Toolbox",
     "description": "Collection of tools for editing RV Engine content",
     "author": "Hans-Joerg \"Alwarren\" Frieden.",
-    "version": (4, 0, 5),
-    "blender": (3, 0, 0),
+    "version": (4, 2, 0),
+    "blender": (4, 2, 0),
     "location": "View3D > Panels",
     "warning": '',
     "wiki_url": "https://github.com/AlwarrenSidh/ArmAToolbox/wiki",
@@ -11,7 +11,7 @@ bl_info = {
     "category": "3D View"}
 
 import sys, os
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'ArmaToolbox'))
+#sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'ArmaToolbox'))
 
 import bpy
 import bpy_extras
@@ -20,28 +20,38 @@ import os
 import sys
 from bpy_extras.io_utils import ImportHelper, ExportHelper
 from bpy.app.handlers import persistent
-from BITxtWriter import exportBITxt
-from MDLImporter import importMDL
-from RTMExporter import exportRTM
-from ASCImporter import importASC
-from ASCExporter import exportASC
+
+from . import (
+    BITxtWriter,
+    MDLImporter,
+    RTMExporter,
+    ASCImporter,
+    ASCExporter,
+    #ArmaTools,
+    ArmaProxy,
+    RVMatTools,
+    BatchMDLExport,
+    MDLExporter,
+    panels,
+    properties,
+    lists,
+    menus
+)
+
 from subprocess import call
 from time import sleep
 from traceback import print_tb
-from ArmaTools import *
-import MDLexporter
-from RVMatTools import rt_CopyRVMat, mt_RelocateMaterial, mt_getMaterialInfo
+# from . import *
+
+#from RVMatTools import rt_CopyRVMat, mt_RelocateMaterial, mt_getMaterialInfo
 import tempfile
-#import winreg 
 from math import *
 from mathutils import *
-from ArmaProxy import CopyProxy, CreateProxyPos
+#from ArmaProxy import CopyProxy, CreateProxyPos
 import os.path as Path
-import ArmaTools
 
 from bpy.types import AddonPreferences
-import BatchMDLExport 
-from panels import createToggleBox
+#from panels import createToggleBox
 
 
 class ArmaToolboxPreferences(AddonPreferences):
@@ -53,17 +63,18 @@ class ArmaToolboxPreferences(AddonPreferences):
         subtype="FILE_PATH",
         default="")
     
-    toolBoxShelf : bpy.props.StringProperty(
-        name = "Tools shelf Tab name",
-        description="Name of the shelf that tools will be put on.",
-        default="Arma 3 Tools"
-    )
+    # Never worked anyway
+    #toolBoxShelf : bpy.props.StringProperty(
+    #    name = "Tools shelf Tab name",
+    #    description="Name of the shelf that tools will be put on.",
+    #    default="Arma 3 Tools"
+    #)
 
-    propertyShelf : bpy.props.StringProperty(
-        name = "Property Shelf Path Name",
-        description = "Name of the shelf that properties will be put on",
-        default = "Arma 3"
-    )
+    #propertyShelf : bpy.props.StringProperty(
+    #    name = "Property Shelf Path Name",
+    #    description = "Name of the shelf that properties will be put on",
+    #    default = "Arma 3"
+    #)
 
     def draw(self, context):
         layout = self.layout
@@ -72,10 +83,10 @@ class ArmaToolboxPreferences(AddonPreferences):
         box.label(text="Paths")
         box.prop(self, "o2ScriptProp")
 
-        box = layout.box()
-        box.label(text="Shelf Names")
-        box.prop(self, "toolBoxShelf")
-        box.prop(self, "propertyShelf")
+        #box = layout.box()
+        #box.label(text="Shelf Names")
+        #box.prop(self, "toolBoxShelf")
+        #box.prop(self, "propertyShelf")
 
         #box = layout.box()
         #box.label(text="Defaults")
@@ -134,7 +145,7 @@ def vgroupExtra(self, context):
 
     # Search and Replace
     row = layout.row()
-    box = createToggleBox(context, row, "vgrpRename_open",
+    box = panels.createToggleBox(context, row, "vgrpRename_open",
                           "VGroup Find and Replace", "armatoolbox.batch_rename_vgrp")
     if guiProps.vgrpRename_open:
         row = box.row()
@@ -144,7 +155,7 @@ def vgroupExtra(self, context):
 
     # Batch Operation
     row = layout.row()
-    box = createToggleBox(context, row, "vgrpB_open",
+    box = panels.createToggleBox(context, row, "vgrpB_open",
                           "VGroup Batch Operation", "armatoolbox.match_vgrp")
     if guiProps.vgrpB_open:
         row = box.row()
@@ -177,13 +188,13 @@ def vgroupExtra(self, context):
             
 #####################################################################################################
 
-O2Script = "\"" + os.path.join(os.path.dirname(__file__), "convert.bio2s") + "\""
-O2ScriptImport = "\"" + os.path.join(os.path.dirname(__file__), "import.bio2s") + "\""
+#O2Script = "\"" + os.path.join(os.path.dirname(__file__), "convert.bio2s") + "\""
+#O2ScriptImport = "\"" + os.path.join(os.path.dirname(__file__), "import.bio2s") + "\""
 
-from properties import (lodPresets,textureTypes,textureClass)
+# from properties import (lodPresets,textureTypes,textureClass)
 
 def getLodPresets():
-    return lodPresets
+    return properties.lodPresets
        
 ###
 ##   Export RTM Operator
@@ -343,7 +354,7 @@ class ATBX_OT_asc_import(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
         return{'FINISHED'}
         
 def ArmaToolboxExportMenuFunc(self, context):
-    self.layout.operator(MDLexporter.ATBX_OT_p3d_export.bl_idname, text="Arma 3 P3D (.p3d)")
+    self.layout.operator(MDLExporter.ATBX_OT_p3d_export.bl_idname, text="Arma 3 P3D (.p3d)")
 
 def ArmaToolboxImportMenuFunc(self, context):
     self.layout.operator(ATBX_OT_p3d_import.bl_idname, text="Arma 3 P3D (.p3d)")
@@ -512,8 +523,8 @@ def fixMassLods():
               ]
     for o in objects:
         lod = o.armaObjProps.lod
-        if lod == '1.000e+13' or lod == '4.000e+13':
-            ArmaTools.attemptFixMassLod (o)
+        #if lod == '1.000e+13' or lod == '4.000e+13':
+        #    ArmaTools.attemptFixMassLod (o)
         
         
 @persistent
@@ -580,30 +591,22 @@ def register():
         register_class(c)
 
     from . import properties
-    print("properties")
     properties.register()
     properties.addCustomProperties()
 
     from . import operators
-    print("operators")
     operators.register()
 
     from . import menus
-    print("menus")
     menus.register()
 
     from . import panels
-    print("panels")
     panels.register()
 
     from . import lists
-    print("lists")
     lists.register()
-
-
-
     BatchMDLExport.register()
-    MDLexporter.register()
+    MDLExporter.register()
 
     bpy.types.TOPBAR_MT_file_export.append(ArmaToolboxExportMenuFunc)
     bpy.types.TOPBAR_MT_file_import.append(ArmaToolboxImportMenuFunc)
@@ -635,10 +638,10 @@ def unregister():
     bpy.types.TOPBAR_MT_file_export.remove(ArmaToolboxExportRTMMenuFunc)
 
     from bpy.utils import unregister_class
-    from . import properties,panels,lists,operators
+    from . import properties,panels,lists,operators,menus
 
     BatchMDLExport.unregister()
-    MDLexporter.unregister()
+    MDLExporter.unregister()
 
     lists.unregister()
     panels.unregister()
