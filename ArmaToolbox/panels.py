@@ -782,6 +782,12 @@ class ATBX_PT_export_configs_panel(bpy.types.Panel):
             #row = box.row()
             row.label(text = "File Name")
 
+        row = layout.row()
+        row.label(text = "Clipboard")
+        col = row.column()
+        col.operator("armatoolbox.save_configs", text = "Save")
+        col.operator("armatoolbox.load_configs", text = "Load")
+
 
 class ATBX_PT_export_configs_batch_panel(bpy.types.Panel):
     bl_category = "Arma 3 Export Configs Batch"

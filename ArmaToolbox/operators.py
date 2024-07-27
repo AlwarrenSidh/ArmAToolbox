@@ -924,6 +924,56 @@ class ATBX_OT_rem_config(bpy.types.Operator):
             prp.remove(active)
         return {"FINISHED"}
 
+class ATBX_OT_save_configs(bpy.types.Operator):
+    bl_idname = "armatoolbox.save_configs"
+    bl_label = ""
+    bl_description = "Save Configs to the clipboard"
+
+    def execute(self, context):
+        prp = context.scene.armaExportConfigs.exportConfigs
+        text = ""
+        for p in prp:
+            text = text + p.name + "|"
+            text = text + p.fileName + "|"
+            if (p.originObject == None):
+                text = text + "\n"
+            else:
+                text = text + p.originObject.name + "\n"
+            
+        
+        context.window_manager.clipboard = text
+        return {"FINISHED"}
+
+class ATBX_OT_load_configs(bpy.types.Operator):
+    bl_idname = "armatoolbox.load_configs"
+    bl_label = ""
+    bl_description = "Load Configs from Clipboard"
+
+    def execute(self, context):
+        prp = context.scene.armaExportConfigs.exportConfigs
+        text = context.window_manager.clipboard
+
+        prp.clear()
+
+        for line in text.splitlines():
+            results = line.split("|")
+            name = ""
+            fileName = ""
+            centerName = ""
+            if len(results) > 0:
+                name = results[0]
+            if len(results) > 1:
+                fileName = results[1]
+            if len(results) > 2:
+                centerName = results[2]
+            
+            item = prp.add()
+            item.name = name
+            item.fileName = fileName
+            if len(centerName):
+                item.originObject = bpy.data.objects[centerName]
+
+        return {"FINISHED"}
 
 class ATBX_OT_add_obj_config(bpy.types.Operator):
     bl_idname = "armatoolbox.add_obj_config"
@@ -1557,7 +1607,9 @@ op_classes = (
     ATBX_MT_add_atleast_config_mesh_collector,
     ATBX_OT_add_del_vgroup,
     ATBX_OT_rem_del_vgroup,
-    ATBX_MT_clear_del_vgroup
+    ATBX_MT_clear_del_vgroup,
+    ATBX_OT_save_configs,
+    ATBX_OT_load_configs
 )
 
 
