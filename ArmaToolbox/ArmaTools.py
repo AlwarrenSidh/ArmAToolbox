@@ -7,7 +7,8 @@ Created on 16.01.2014
 import bpy
 import bmesh
 from . import (
-    ArmaProxy
+    ArmaProxy,
+    MDLImporter
 )
 import tempfile
 from subprocess import call
@@ -1104,3 +1105,215 @@ def collectionMeshListValid(context, object):
             return False
         
     return True
+
+# from https://blenderartists.org/t/show-hide-collection-blender-beta-2-80/1141768
+# modified for later blender versions
+def get_viewport_ordered_collections(context):
+    def fn(c, out, addme):
+        if addme:
+            out.append(c)
+        for c1 in c.children:
+            out.append(c1)
+        for c1 in c.children:
+            fn(c1, out, False)
+    collections = []
+    fn(context.scene.collection, collections, True)
+    return collections
+
+def get_area_from_context(context, area_type):
+    area = None
+    for a in context.screen.areas:
+        if a.type == area_type:
+            area = a
+            break
+    return area
+
+def set_collection_viewport_visibility(context, collection_name, visibility=True):
+    collections = get_viewport_ordered_collections(context)
+
+    collection = None
+    index = 0
+    for c in collections:
+        if c.name == collection_name:
+            collection = c
+            break
+        index += 1
+
+    if collection is None:
+        return
+
+    first_object = None
+    if len(collection.objects) > 0:
+        first_object = collection.objects[0]
+
+    try:
+        bpy.ops.object.hide_collection(context, collection_index=index, toggle=True)
+
+        if first_object.visible_get() != visibility:
+            bpy.ops.object.hide_collection(context, collection_index=index, toggle=True)
+    except:
+        context_override = context.copy()
+        context_override['area'] = get_area_from_context(context, 'VIEW_3D')
+
+        with bpy.context.temp_override(window=context_override['window'], area=context_override['area']):
+            bpy.ops.object.hide_collection(collection_index=index, toggle=True)
+
+        if first_object.visible_get() != visibility:
+            with bpy.context.temp_override(window=context_override['window'], area=context_override['area']):
+                bpy.ops.object.hide_collection(collection_index=index, toggle=True)
+
+    return collection
+
+def allButOneCollection(context):
+    colls = context.collection.children_recursive
+    first_name = colls[0].name
+
+    for c in colls:
+        set_collection_viewport_visibility(context, c.name, False)
+
+    set_collection_viewport_visibility(context, first_name, True)
+
+def getSelectedObjects(context):
+    # Find the Outliner area
+    override = None
+    for area in bpy.context.screen.areas:
+        if area.type == 'OUTLINER':
+            for region in area.regions:
+                if region.type == 'WINDOW':
+                    override = {'area': area, 'region': region}
+                    break
+            break
+
+    # Get selected objects (including hidden ones) if Outliner exists
+    if override:
+        with bpy.context.temp_override(**override):
+            selected_objects = [o for o in bpy.context.selected_ids if isinstance(o, bpy.types.Object)]
+            return (selected_objects)
+    else:
+        print("No Outliner area found!")
+
+
+def find_or_create_collection(collection_name):
+    """
+    Find a collection by name or create a new one if it doesn't exist.
+
+    Args:
+        collection_name (str): The name of the collection to find or create.
+
+    Returns:
+        bpy.types.Collection: The found or created collection.
+    """
+    # Check if the collection already exists
+    collection = bpy.data.collections.get(collection_name)
+    
+    # If the collection does not exist, create a new one
+    if collection is None:
+        collection = bpy.data.collections.new(collection_name)
+        bpy.context.scene.collection.children.link(collection)
+    
+    return collection
+
+def resolutionName(lod, lodDistance):
+
+    if (lod == '-1.0'):
+        return "LOD_" + str(lodDistance)
+    
+    values ={
+        '1.000e+3':'View Gunner',
+        '1.100e+3':'View Pilot',
+        '1.200e+3':'View Cargo',
+        '1.000e+4':'Stencil Shadow',
+        '2.000e+4':'Edit',
+        #1.001e+4:'Stencil Shadow 2',
+        '1.100e+4':'Shadow Volume',
+        #1.101e+4:'Shadow Volume 2',
+        '1.000e+13':'Geometry',
+        '1.000e+15':'Memory',
+        '2.000e+15':'Land Contact',
+        '3.000e+15':'Roadway',
+        '4.000e+15':'Paths',
+        '5.000e+15':'Hit Points',
+        '6.000e+15':'View Geometry',
+        '7.000e+15':'Fire Geometry',
+        '8.000e+15':'View Cargo Geometry',
+        '9.000e+15':'View Cargo Fire Geometry',
+        '1.000e+16':'View Commander',
+        '1.100e+16':'View Commander Geometry',
+        '1.200e+16':'View Commander Fire Geometry',
+        '1.300e+16':'View Pilot Geometry',
+        '1.400e+16':'View Pilot Fire Geometry',
+        '1.500e+16':'View Gunner Geometry',
+        '1.600e+16':'View Gunner Fire Geometry',
+        '1.700e+16':'Sub Parts',
+        '1.800e+16':'Cargo View shadow volume',
+        '1.900e+16':'Pilot View shadow volume',
+        '2.000e+16':'Gunner View shadow volume',
+        '2.100e+16':'Wreckage',
+        '2.000e+13':'Geometry Buoyancy',
+        '4.000e+13':'Geometry PhysX'
+    }
+
+    for n in values:
+        if n == lod:
+            if (NeedsResolution(lod)):
+                return values[n] + "_" + str(lodDistance)
+            else:    
+                return values[n]
+
+def createEmptyObject(context, name, collection):
+    verts = []
+    faces = []
+    mesh_data = bpy.data.meshes.new("name")
+    mesh_data.from_pydata(verts, [], faces)
+    mesh_data.update()
+      
+    obj = bpy.data.objects.new(name, mesh_data)
+
+    if collection is not None:
+        collection.objects.link(obj)
+
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj     
+    return obj       
+
+def meshCollectify(context, obj, mcify_lod, mcify_lodDistance, mcify_colectionName, mcify_addDecimate, mciy_decimateRatio, mcify_deleteGroup):
+    print(
+        "obj ", obj.name,
+        "lod ", mcify_lod,
+        "lodDistance ", mcify_lodDistance,
+        "colectionName ", mcify_colectionName
+    )
+
+    if mcify_colectionName != "":
+        collection = find_or_create_collection(mcify_colectionName)
+    else:
+        collection = context.collection
+
+    resName = resolutionName(mcify_lod, mcify_lodDistance)
+    
+    nobj = createEmptyObject(context, obj.name + " " + resName + "Mesh Collector", collection)
+    nobj.armaObjProps.isArmaObject = True
+    nobj.armaObjProps.lod = mcify_lod
+    nobj.armaObjProps.lodDistance = mcify_lodDistance
+    nobj.armaObjProps.isMeshCollector = True
+    
+    # Enter the mesh into the mesh collector
+    item = nobj.armaObjProps.collectedMeshes.add()
+    item.object = obj
+
+    # Copy the export configs
+    for c in context.scene.armaExportConfigs.exportConfigs:
+        nobj.armaObjProps.exportConfigs.add().name = c.name
+    
+    if mcify_deleteGroup != "":
+        if "," not in mcify_deleteGroup:
+            nobj.armaObjProps.collectedMeshesDelete.add().vname = mcify_deleteGroup
+        else:
+            grps = mcify_deleteGroup.split(",")
+            for g in grps:
+                nobj.armaObjProps.collectedMeshesDelete.add().vname = g
+    
+    if mcify_addDecimate:
+        # Add Decimate modifier
+        mod = nobj.modifiers.new(name="Decimate", type='DECIMATE')
+        mod.ratio = mciy_decimateRatio

@@ -628,7 +628,7 @@ class ATBX_PT_mass_tools_panel(bpy.types.Panel):
     def poll(cls, context):
         ## Visible when there is a selected object, it is a mesh
         obj = context.active_object
-        
+       
         return (obj
             and obj.select_get() == True
             and obj.armaObjProps.isArmaObject == True
@@ -1059,6 +1059,35 @@ class ATBX_PT_zbias_panel(bpy.types.Panel):
         row.operator("armatoolbox.select_zbiased",
                      text="Select ZBiased")
 
+class ATBX_PT_meshcolletify_panel(bpy.types.Panel):
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_label = "Mesh Collector Bulk Creator"
+    bl_category = "Arma 3 Tools"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        layout = self.layout
+        guiProps = context.window_manager.armaGUIProps
+        row = layout.row()
+        row.prop(guiProps, "mcify_lod", text="LOD")
+        if ArmaTools.NeedsResolution(guiProps.mcify_lod):
+            row = layout.row()
+            row.prop(guiProps, "mcify_lodDistance", text="LOD Distance")
+
+        row = layout.row()
+        row.prop(guiProps, "mcify_collectionName", text="Collection Name")
+
+        box = layout.box()
+        box.prop(guiProps, "mcify_add_decimate", text="Add Decimate")
+        if (guiProps.mcify_add_decimate):
+            box.prop(guiProps, "mcify_decimateRatio", text="Decimate Ratio")
+        box.prop(guiProps, "mcify_deleteGroup", text="Delete Groups")
+
+
+        row = layout.row()
+        row.operator("armatoolbox.meshcollectify", text="Meshcollectify")
+
 panel_classes = (
     ATBX_PT_properties_panel,
     ATBX_PT_mesh_collector_panel,
@@ -1080,7 +1109,8 @@ panel_classes = (
     ATBX_PT_export_config_object_panel,
     ATBX_PT_vgroup_maker_panel,
     ATBX_PT_export_configs_batch_panel,
-    ATBX_PT_zbias_panel
+    ATBX_PT_zbias_panel,
+    ATBX_PT_meshcolletify_panel
 #    ATBX_PT_model_cfg_panel
 )
 

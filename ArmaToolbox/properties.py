@@ -442,6 +442,34 @@ class ArmaToolboxGUIProps(bpy.types.PropertyGroup):
     )
     vgrpB_open : bpy.props.BoolProperty(name="vgrpB_open", default = False)
 
+    # Meshcollectivfy
+    mcify_lod : bpy.props.EnumProperty(
+        name="LOD Type",
+        description="Type of LOD",
+        items=lodPresets,
+        default='-1.0')
+    mcify_lodDistance : bpy.props.FloatProperty(
+        name="Distance",
+        description="Distance of Custom LOD",
+        default=1.0)
+    mcify_collectionName : bpy.props.StringProperty(
+        name="Collection Name", 
+        description="Name of the collection to create, leave empty to not create a collection",
+        default="")
+    mcify_add_decimate: bpy.props.BoolProperty(
+        name="Add Decimate",
+        description = "Add a decimate modifier to the collected meshes",
+        default = False)
+    mcify_decimateRatio: bpy.props.FloatProperty(
+        name="Decimate Ratio",
+        description="Ratio for the decimate modifier",
+        default=0.5,
+        min=0.0,
+        max=1.0)
+    mcify_deleteGroup : bpy.props.StringProperty(
+        name="Delete Group",
+        description="Vertex Groups to delete, empty for none, multiple with comma",
+        default="")
 
 class ArmaToolboxCopyHelper(bpy.types.PropertyGroup):
     name : bpy.props.StringProperty(name="name", 

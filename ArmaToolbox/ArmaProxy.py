@@ -162,6 +162,9 @@ def SelectProxy(obj, proxyName):
 # Used primarily for joining two objects with proxies
 def RebaseProxies(obj, newBase):
     #print("Rebasing proxies of ", obj.name_full)
+    if obj.armaObjProps.isArmaObject == False:
+        return
+
     newIdx = newBase
     proxies = []
     for prox in obj.armaObjProps.proxyArray:
@@ -180,6 +183,8 @@ def RebaseProxies(obj, newBase):
         prox.name = group.name
 
 def GetMaxProxy(obj):
+    if obj.armaObjProps.isArmaObject == False:
+        return 0
     highIndex = -1
     for prox in obj.armaObjProps.proxyArray:
         index = 0

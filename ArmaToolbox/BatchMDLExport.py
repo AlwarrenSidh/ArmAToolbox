@@ -200,6 +200,7 @@ class ATBX_OT_p3d_batch_export(bpy.types.Operator): #, ExportHelper):
                 filePtr.close()
                 ArmaTools.RunO2Script(context, fileName)
             except Exception as inst:
+                print(inst)
                 str =  "Error writing file " + fileName + " for config " + item.name
                 self.report({'ERROR'}, str)
                 return {'CANCELLED'}

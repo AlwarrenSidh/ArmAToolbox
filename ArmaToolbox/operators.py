@@ -679,6 +679,7 @@ class ATBX_OT_distribute_mass(bpy.types.Operator):
     def poll(cls, context):
         ## Visible when there is a selected object, it is a mesh
         obj = context.active_object
+        
         return (obj
             and obj.select_get() == True
             and obj.armaObjProps.isArmaObject == True
@@ -1544,6 +1545,24 @@ class ATBX_MT_clear_del_vgroup(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class ATBX_OT_meshcollectify(bpy.types.Operator):
+    bl_idname = "armatoolbox.meshcollectify"
+    bl_label = "Mesh Collectify"
+    bl_description = "Collectify the meshes"
+
+    def execute(self, context):
+        objects = ArmaTools.getSelectedObjects(context)
+        guiProps = bpy.context.window_manager.armaGUIProps
+        mcify_lod = guiProps.mcify_lod
+        mcify_lodDistance = guiProps.mcify_lodDistance
+        mcify_collectionName = guiProps.mcify_collectionName
+        mcify_addDecimate = guiProps.mcify_add_decimate
+        mcify_decimateRatio = guiProps.mcify_decimateRatio
+        mcify_deleteGroup = guiProps.mcify_deleteGroup
+        for obj in objects:
+            ArmaTools.meshCollectify(context, obj, mcify_lod, mcify_lodDistance, mcify_collectionName,
+                                     mcify_addDecimate, mcify_decimateRatio, mcify_deleteGroup)
+        return {'FINISHED'}
 
 
 op_classes = (
@@ -1618,7 +1637,8 @@ op_classes = (
     ATBX_OT_rem_del_vgroup,
     ATBX_MT_clear_del_vgroup,
     ATBX_OT_save_configs,
-    ATBX_OT_load_configs
+    ATBX_OT_load_configs,
+    ATBX_OT_meshcollectify
 )
 
 

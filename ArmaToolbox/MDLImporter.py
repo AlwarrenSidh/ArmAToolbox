@@ -11,7 +11,10 @@ import bpy
 import bmesh
 import os.path as path
 
-from . import ArmaTools
+from . import (
+    ArmaTools,
+    properties
+)
 
 def getLayerMask(layer):
     res = [False, False, False, False, False,
@@ -563,7 +566,7 @@ def loadLOD(context, filePtr, objectName, materialData, layerFlag, lodnr):
 
     print("set LOD type")    
     # Set the right LOD type
-    lodPresets = ArmaTools.lodPresets
+    lodPresets = properties.lodPresets
     
     for n in lodPresets:
         if float(n[0]) == resolution:
@@ -648,5 +651,5 @@ def importMDL(context, fileName, layerFlag):
             return -2
 
     filePtr.close()
-
+    ArmaTools.allButOneCollection(context)
     return 0

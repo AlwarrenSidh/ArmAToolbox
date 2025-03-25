@@ -2,7 +2,7 @@ bl_info = {
     "name": "Arma: Toolbox",
     "description": "Collection of tools for editing RV Engine content",
     "author": "Hans-Joerg \"Alwarren\" Frieden.",
-    "version": (4, 2, 0),
+    "version": (4, 2, 1),
     "blender": (4, 2, 0),
     "location": "View3D > Panels",
     "warning": '',
@@ -27,7 +27,7 @@ from . import (
     RTMExporter,
     ASCImporter,
     ASCExporter,
-    #ArmaTools,
+    ArmaTools,
     ArmaProxy,
     RVMatTools,
     BatchMDLExport,
@@ -35,7 +35,8 @@ from . import (
     panels,
     properties,
     lists,
-    menus
+    menus,
+    RtmTools
 )
 
 from subprocess import call
@@ -174,6 +175,11 @@ def vgroupExtra(self, context):
         if actGrp>=0:
             row = layout.row()
             row.label(text = "ARMA group weight {:6.2f}".format(getMassForSelection(obj, obj.vertex_groups[actGrp].name)))
+        totalWeight = 0
+        for k in obj.vertex_groups.keys():
+            if k[:9].lower() == "component":
+                totalWeight = totalWeight + getMassForSelection(obj, k)
+        row.label(text = "Total weight {:6.2f}".format(totalWeight))
 
     if arma.isArmaObject and (arma.lod == '1.000e+13' or arma.lod == '4.000e+13' or arma.lod == '7.000e+15'):
         row = layout.row()
@@ -247,7 +253,7 @@ class ATBX_OT_rtm_export(bpy.types.Operator, bpy_extras.io_utils.ExportHelper):
         if len(keyframeList) == 0: 
             self.staticPose = True
        
-        exportRTM(context, keyframeList, self.filepath, self.staticPose, self.clipFrames)
+        RTMExporter.exportRTM(context, keyframeList, self.filepath, self.staticPose, self.clipFrames)
         
         return{'FINISHED'}
 
@@ -307,7 +313,7 @@ class ATBX_OT_p3d_import(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
     def execute (self, context):
         error = -2
         try:
-            error = importMDL(context, self.filepath, self.layeredLods)
+            error = MDLImporter.importMDL(context, self.filepath, self.layeredLods)
         except Exception as e:
             exc_tb = sys.exc_info()[2]
             print_tb(exc_tb)
@@ -561,11 +567,11 @@ class ImportP3D(bpy.types.Operator, ImportHelper):
             dirname = os.path.dirname(self.filepath)
             for file in self.files:
                 path = os.path.join(dirname, file.name)
-                if importMDL(context, path, True) == 0:
+                if MDLImporter.importMDL(context, path, True) == 0:
                     ret = {'FINISHED'}
             return ret
         else:
-            if importMDL(context,self.filepath, True) == 0:
+            if MDLImporter.importMDL(context,self.filepath, True) == 0:
                 ret = {'FINISHED'}
             return ret
         
@@ -581,6 +587,9 @@ classes = (
     ATBX_OT_asc_export,
     ATBX_OT_rtm_export
 )
+
+def ATBX_vp_menu(self, context):
+    self.layout.menu('ATBX_MT_ArmaToolbox_menu')
 
 def register():
     print (__name__ + " registering")
@@ -616,6 +625,8 @@ def register():
     #bpy.types.INFO_MT_mesh_add.append(ArmaToolboxAddProxyMenuFunc)
     bpy.types.TOPBAR_MT_file_export.append(ArmaToolboxExportRTMMenuFunc)
 
+    bpy.types.VIEW3D_MT_editor_menus.append(ATBX_vp_menu)
+
     if load_handler not in bpy.app.handlers.load_post:
         bpy.app.handlers.load_post.append(load_handler)
     bpy.types.DATA_PT_vertex_groups.append(vgroupExtra)
@@ -627,6 +638,10 @@ def unregister():
         del bpy.types.WindowManager.armatoolbox
     except:
         pass
+
+    bpy.app.handlers.load_post.remove(load_handler)
+
+    bpy.types.VIEW3D_MT_editor_menus.remove(ATBX_vp_menu)
 
     bpy.types.TOPBAR_MT_file_export.remove(ArmaToolboxExportMenuFunc)
     bpy.types.TOPBAR_MT_file_import.remove(ArmaToolboxImportMenuFunc)

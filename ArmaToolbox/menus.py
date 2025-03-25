@@ -30,10 +30,20 @@ class ATBX_MT_mesh_collector_menu(Menu):
         layout.operator("armatoolbox.add_any_config_mesh_collector", text="Add all meshes with one common config", icon='ADD')
         layout.operator("armatoolbox.add_atleast_config_mesh_collector", text="Add all meshes with at least all common config", icon='ADD')
 
+class ATBX_MT_ArmaToolbox_menu(Menu):
+    bl_label = "Arma 3 Toolbox"
+
+    def draw(self, context):
+        layout = self.layout
+        layout.operator("armatoolbox.batch_export_p3d", text = "Batch Export", icon = 'EXPORT')
+        layout.operator("armatoolbox.export_p3d", text = "Export single P3D", icon = 'EXPORT')
+        layout.operator("armatoolbox.import_p3d", text = "Import MDL", icon = 'IMPORT')
+
 menu_classes = (
     #ATBX_MT_named_selection_menu,
     ATBX_MT_named_properties_menu,
-    ATBX_MT_mesh_collector_menu
+    ATBX_MT_mesh_collector_menu,
+    ATBX_MT_ArmaToolbox_menu
 )
 
 

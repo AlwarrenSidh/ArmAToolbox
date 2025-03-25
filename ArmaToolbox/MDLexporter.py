@@ -77,6 +77,11 @@ def getMaterialInfo(face, obj):
     
     if face.material_index >= 0 and face.material_index < len(obj.material_slots):
         material = obj.material_slots[face.material_index].material
+
+        if material == None:
+            # print("****WARNING**** Polygon without assigned material in object ", obj.name)
+            return("","#(argb,8,8,3)color(1,0,1,1)")
+
         texType = material.armaMatProps.texType;
     
         if texType == 'Texture':
@@ -519,7 +524,7 @@ def export_lod(filePtr, obj, wm, idx):
     
     print("taggs: mass (if any)")
     # Write a mass selection if this is a Geometry or PhysX LOD
-    if lod == 1.000e+13 or lod == 4.000e+13:
+    if lod == 1.000e+13: # or lod == 4.000e+13:
         writeMass(filePtr, obj, mesh)
 
     print("taggs: named props")
