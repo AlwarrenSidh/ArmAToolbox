@@ -2,7 +2,7 @@ bl_info = {
     "name": "Arma: Toolbox",
     "description": "Collection of tools for editing RV Engine content",
     "author": "Hans-Joerg \"Alwarren\" Frieden.",
-    "version": (4, 2, 1),
+    "version": (4, 2, 3),
     "blender": (4, 2, 0),
     "location": "View3D > Panels",
     "warning": '',
@@ -56,7 +56,7 @@ from bpy.types import AddonPreferences
 
 
 class ArmaToolboxPreferences(AddonPreferences):
-    bl_idname = __name__
+    bl_idname = __package__
     
     o2ScriptProp : bpy.props.StringProperty(
         name="o2Script Path", 

@@ -865,6 +865,10 @@ class ATBX_PT_export_config_object_panel(bpy.types.Panel):
         row = layout.row()
         row.prop(arma, "alwaysExport", text="Include in every config")
 
+        if (arma.isMeshCollector):
+            row = layout.row()
+            row.prop(arma, "inheritConfig", text="Inherit config from collected meshes in addition to this list")
+
         if arma.alwaysExport == False:
             if context.scene.armaExportConfigs.exportConfigs.keys().__len__() != 0:
                 col = layout.box().column(align=True)

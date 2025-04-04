@@ -220,6 +220,7 @@ class ArmaToolboxProperties(bpy.types.PropertyGroup):
     exportConfigs : bpy.props.CollectionProperty(type = ArmaToolboxExportConfigObjectProperty, description = "Export Configs")
     configIndex: bpy.props.IntProperty("configIndex", default=-1)
     alwaysExport : bpy.props.BoolProperty(name = "alwaysExport", default=False, description="If True, include this in all exports on a batch export")
+    inheritConfig: bpy.props.BoolProperty(name = "inheritConfig", default=True, description="If true, mesh collectors inherit the configs from their collected meshes.as well as those set in here.")
     
     # Named Selections
     namedSelection : bpy.props.CollectionProperty(type = ArmaToolboxNamedSelection,

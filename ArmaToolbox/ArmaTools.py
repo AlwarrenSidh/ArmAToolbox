@@ -837,7 +837,23 @@ def GetObjectsByConfig(configName):
                 arma = obj.armaObjProps
                 if configName in arma.exportConfigs.keys() or arma.alwaysExport == True:
                     objects.append(obj)
-
+                if arma.isMeshCollector and arma.inheritConfig:
+                    print("obj is a mesh collector", obj.name)
+                    include = False
+                    for collected in arma.collectedMeshes:
+                        ocol = collected.object
+                        print("Collected mesh: ", ocol.name)
+                        print("   isArmaObject:", ocol.armaObjProps.isArmaObject)
+                        print("   configs: ")
+                        for i in ocol.armaObjProps.exportConfigs.keys():
+                            print ("     ", i)
+                        print("   always export:", ocol.armaObjProps.alwaysExport)
+                        print("   not already in export list:",ocol not in objects )
+                        if ocol.armaObjProps.isArmaObject and configName in ocol.armaObjProps.exportConfigs.keys() or ocol.armaObjProps.alwaysExport == True:
+                            include = True
+                    if include:
+                        objects.append(obj)
+    print("Objects ", objects)
     return objects
 
 def RunO2Script(context, fileName):
@@ -850,11 +866,14 @@ def RunO2Script(context, fileName):
     filePtr.write('save p3d;\n')
     filePtr.close()
 
+    print(__package__)
+    print(__name__)
     #user_preferences = context.preferences
     #addon_prefs = user_preferences.addons["ArmaToolbox"].preferences
     addon_prefs = bpy.context.preferences.addons[__package__].preferences
     command = addon_prefs.o2ScriptProp
     command = '"' + command + '" "' + tmpName + '"'
+    print("Running command ", command)
     call(command, shell=True)
     os.remove(tmpName)
 
@@ -1302,7 +1321,7 @@ def meshCollectify(context, obj, mcify_lod, mcify_lodDistance, mcify_colectionNa
     item.object = obj
 
     # Copy the export configs
-    for c in context.scene.armaExportConfigs.exportConfigs:
+    for c in obj.armaObjProps.exportConfigs:
         nobj.armaObjProps.exportConfigs.add().name = c.name
     
     if mcify_deleteGroup != "":
